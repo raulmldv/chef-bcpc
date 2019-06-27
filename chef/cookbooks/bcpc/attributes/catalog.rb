@@ -111,6 +111,20 @@ default['bcpc']['catalog'] = {
       'public' => 'v1/',
     },
   },
+  'container-infra' => {
+    'name' => 'magnum',
+    'description' => 'OpenStack Container Infrastructure Management Service',
+    'ports' => {
+      'admin' => 9511,
+      'internal' => 9511,
+      'public' => 9511,
+    },
+    'uris' => {
+      'admin' => 'v1/',
+      'internal' => 'v1/',
+      'public' => 'v1/',
+    },
+  },
   'network' => {
     'name' => 'neutron',
     'description' => 'OpenStack Networking',

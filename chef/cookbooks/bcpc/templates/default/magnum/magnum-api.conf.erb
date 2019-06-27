@@ -1,0 +1,18 @@
+Listen <%= "#{node['service_ip']}:9511" %>
+LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-agent}i\" %D(us)" magnum_combined
+
+<VirtualHost <%= "#{node['service_ip']}:9511" %>>
+  WSGIDaemonProcess magnum-wsgi-api processes=<%= @processes %> threads=1 user=magnum group=magnum display-name=%{GROUP}
+  WSGIProcessGroup magnum-wsgi-api
+  WSGIScriptAlias / /usr/lib/python2.7/dist-packages/magnum/api/app.wsgi
+  WSGIApplicationGroup %{GLOBAL}
+  WSGIPassAuthorization On
+  ErrorLogFormat "%{cu}t %M"
+
+  ErrorLog /var/log/apache2/magnum-api_error.log
+  CustomLog /var/log/apache2/magnum-api.log magnum_combined
+
+  <Directory /usr/lib/python2.7/dist-packages/magnum/api>
+    Require all granted
+  </Directory>
+</VirtualHost>
