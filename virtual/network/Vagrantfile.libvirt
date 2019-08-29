@@ -1,0 +1,81 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Copyright:: 2019 Bloomberg Finance L.P.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+def setup_proxy(node)
+  http_proxy = ENV['http_proxy'] || ''
+  https_proxy = ENV['https_proxy'] || ''
+  return if http_proxy == '' and https_proxy == ''
+  node.vm.provision 'shell', path: 'proxyconfig.sh',
+                             args: [http_proxy, https_proxy]
+end
+
+def mount_apt_cache(config)
+  user_data_path = Vagrant.user_data_path.to_s
+  cache_dir = File.join(user_data_path, 'cache', 'apt', config.vm.box)
+  apt_cache_dir = '/var/cache/apt/archives'
+  config.vm.synced_folder cache_dir, apt_cache_dir, create: true, type: '9p'
+end
+
+def load_network
+  # load the network topology
+  network = './netplan/network.yaml'
+  if File.file?(File.expand_path(network))
+    YAML.load_file(File.expand_path(network))
+  else
+    raise "#{network} not found"
+  end
+end
+
+network = load_network
+
+Vagrant.configure(2) do |config|
+  config.vm.box = 'bento/ubuntu-18.04'
+  config.vm.box_download_insecure = true
+
+  config.vm.provider :libvirt do |lv|
+    if ENV['LIBVIRT_DRIVER'] == 'qemu'
+      lv.driver = 'qemu'
+      lv.cpu_mode = 'custom'
+      config.vm.synced_folder './', '/vagrant', type: 'rsync'
+    else
+      lv.driver = 'kvm'
+      lv.nested = true
+      lv.cpu_mode = 'host-passthrough'
+      config.vm.synced_folder './', '/vagrant', type: '9p'
+      #mount_apt_cache(config)
+    end
+    lv.cpus = 1
+    lv.memory = 512
+  end
+
+  config.vm.define 'network' do |node|
+    node.vm.hostname = 'network'
+    (1..network['network']['ethernets'].length-1).each do |i|
+      eth = "eth#{i}"
+      a = network['network']['ethernets'][eth]['addresses'][0].split('/')
+      node.vm.network 'private_network',
+                      ip: a[0],
+                      libvirt__netmask: a[1],
+                      libvirt__network_name: "management#{i}",
+                      libvirt__dhcp_enabled: false,
+                      libvirt__forward_mode: 'none'
+    end
+    setup_proxy(node)
+    node.vm.provision 'shell', path: 'provisioner.sh', args: 'network'
+  end
+end
