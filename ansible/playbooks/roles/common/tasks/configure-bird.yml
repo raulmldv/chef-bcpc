@@ -1,0 +1,34 @@
+- name: copy bird package
+  copy:
+    src: "{{ assets_download_dir }}/{{ bird_package.filename }}"
+    dest: "/var/tmp/{{ bird_package.filename }}"
+    force: no
+
+- name: install bird
+  apt:
+    deb: "/var/tmp/{{ bird_package.filename }}"
+
+- name: configure bird
+  template:
+    src: bird/bird.conf.j2
+    dest: /etc/bird/bird.conf
+  register: bird
+
+- name: restart bird
+  service:
+    name: bird
+    state: restarted
+    enabled: yes
+  when: bird.changed
+
+- name: check for default gateway from tor
+  shell: |
+    set -o pipefail
+    /usr/sbin/birdc show route | grep 0.0.0.0/0
+  args:
+    executable: /bin/bash
+  retries: 30
+  delay: 5
+  register: result
+  until: result.rc == 0
+  when: ansible_virtualization_type != 'virtualbox'

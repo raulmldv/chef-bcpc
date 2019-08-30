@@ -1,11 +1,6 @@
-- name: upload chef-server install package
-  copy:
-    src: "{{ assets_download_dir }}/{{ chef_server_package.filename }}"
-    dest: "/var/tmp/{{ chef_server_package.filename }}"
-
-- name: install chef-server install package
-  apt:
-    deb: "/var/tmp/{{ chef_server_package.filename }}"
+- name: install chef-server package
+  package:
+    name: chef-server-core
 
 - name: configure chef server
   shell: |

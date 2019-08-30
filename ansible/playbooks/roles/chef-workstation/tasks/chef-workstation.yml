@@ -1,11 +1,6 @@
-- name: upload chef-client package
-  copy:
-    src: "{{ assets_download_dir }}/{{ chef_client_package.filename }}"
-    dest: "/var/tmp/{{ chef_client_package.filename }}"
-
-- name: install chef-client
-  apt:
-    deb: "/var/tmp/{{ chef_client_package.filename }}"
+- name: install chef-client package
+  package:
+    name: chef
 
 - name: create .chef directory
   become: false

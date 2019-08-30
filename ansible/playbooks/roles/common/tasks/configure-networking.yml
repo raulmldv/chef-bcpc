@@ -41,60 +41,17 @@
     state: restarted
   when: resolved.changed
 
-- name: install tinyproxy
-  apt:
-    name: tinyproxy
-  environment: "{{ local_proxy['environment'] | default({}) }}"
-  when: local_proxy is defined and local_proxy['enabled']
+- import_tasks: configure-tinyproxy.yml
+  become: true
+  vars:
+    ansible_host: "{{ interfaces['transit'] | primary_ip(hostvars[inventory_hostname]) }}"
+  tags: [never,configure-tinyproxy]
 
-- name: configure tinyproxy
-  template:
-    src: tinyproxy/tinyproxy.conf.j2
-    dest: /etc/tinyproxy/tinyproxy.conf
-  register: tinyproxy
-  when: local_proxy is defined and local_proxy['enabled']
-
-- name: restart tinyproxy
-  service:
-    name: tinyproxy
-    state: restarted
-    enabled: yes
-  when: tinyproxy.changed
-
-- name: configure apt proxy
-  template:
-    src: apt/proxy.j2
-    dest: /etc/apt/apt.conf.d/proxy
-  when: local_proxy is defined and local_proxy['enabled']
-
-- name: install bird
-  apt:
-    name: bird
-
-- name: configure bird
-  template:
-    src: bird/bird.conf.j2
-    dest: /etc/bird/bird.conf
-  register: bird
-
-- name: restart bird
-  service:
-    name: bird
-    state: restarted
-    enabled: yes
-  when: bird.changed
-
-- name: check for default gateway from tor
-  shell: |
-    set -o pipefail
-    /usr/sbin/birdc show route | grep 0.0.0.0/0
-  args:
-    executable: /bin/bash
-  retries: 30
-  delay: 5
-  register: result
-  until: result.rc == 0
-  when: ansible_virtualization_type != 'virtualbox'
+- import_tasks: configure-bird.yml
+  become: true
+  vars:
+    ansible_host: "{{ interfaces['transit'] | primary_ip(hostvars[inventory_hostname]) }}"
+  tags: [never,configure-bird]
 
 - name: service ip netdev config
   template:

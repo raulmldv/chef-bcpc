@@ -19,11 +19,6 @@ file '/etc/apt/sources.list' do
   action :delete
 end
 
-bash 'remove-foreign-arch' do
-  code 'dpkg --remove-architecture i386'
-  only_if 'dpkg --print-foreign-architectures | grep i386'
-end
-
 repo = node['bcpc']['ubuntu']['repo']
 codename = node['lsb']['codename']
 

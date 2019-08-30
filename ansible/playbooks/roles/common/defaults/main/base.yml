@@ -135,7 +135,7 @@ all_chef_extra_cookbooks: "{{ chef_extra_cookbooks +
                               additional_chef_extra_cookbooks | default([]) }}"
 
 ###############################################################################
-# web server file assets
+# web server assets
 ###############################################################################
 
 web_server_assets:
@@ -148,6 +148,17 @@ web_server_assets:
 # all web server file assets
 all_web_server_assets: "{{ web_server_assets +
                             additional_web_server_assets | default([]) }}"
+
+web_server_debs:
+  - file_asset: aptly
+  - file_asset: tinyproxy
+  - file_asset: chef_client
+  - file_asset: chef_server
+
+
+# all web server debs
+all_web_server_debs: "{{ web_server_debs +
+                          additional_web_server_debs | default([]) }}"
 
 ###############################################################################
 # external files (to be downloaded)
@@ -186,6 +197,26 @@ assets_files:
     checksum: sha256:2800962092ead67747ed2cd2087b0e254eb5e1a1b169cdc162c384598e4caed5
     filename: chef-server-core_12.17.33-1_amd64.deb
 
+  - name: aptly
+    url: http://archive.ubuntu.com/ubuntu/pool/universe/a/aptly/aptly_1.2.0-3_amd64.deb
+    checksum: sha256:d147b77ed4a88aac150a65c82245b57a4b84ef855f3ae54573666568344ec3d0
+    filename: aptly_1.2.0-3_amd64.deb
+
+  - name: tinyproxy-bin
+    url: http://archive.ubuntu.com/ubuntu/pool/universe/t/tinyproxy/tinyproxy-bin_1.8.4-5_amd64.deb
+    checksum: sha256:f4579190ba89d9290ff5c8059498d4047fa0f37e34354894638db6c4149f696f
+    filename: tinyproxy-bin_1.8.4-5_amd64.deb
+
+  - name: tinyproxy
+    url: http://archive.ubuntu.com/ubuntu/pool/universe/t/tinyproxy/tinyproxy_1.8.4-5_all.deb
+    checksum: sha256:5a06dfd3797302c27efec5b2ebad85f89a8a8a7591b6ce1534488654be5a7e02
+    filename: tinyproxy_1.8.4-5_all.deb
+
+  - name: bird
+    url: http://archive.ubuntu.com/ubuntu/pool/universe/b/bird/bird_1.6.3-3_amd64.deb
+    checksum: sha256:0ebdb07d621e50a5ce4049720767237833922a5dca9537f7425a799e631c58c2
+    filename: bird_1.6.3-3_amd64.deb
+
   - name: logrotate
     url: https://supermarket.chef.io/cookbooks/logrotate/versions/2.2.0/download
     checksum: sha256:f9385a488ec0ee02bfd680ac5aac012000006e4168f97bbf06b5b28373a1d1aa
@@ -218,3 +249,11 @@ host_aggregates: []
 
 networking:
   mtu: 1500
+
+###############################################################################
+# packages
+###############################################################################
+
+tinyproxy_packages: "{{ 'tinyproxy' | find_assets(all_file_assets) }}"
+bird_package: "{{ 'bird' | find_asset(all_file_assets) }}"
+aptly_package: "{{ 'aptly' | find_asset(all_file_assets) }}"

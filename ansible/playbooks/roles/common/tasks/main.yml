@@ -20,3 +20,7 @@
   vars:
     ansible_host: "{{ interfaces['transit'] | primary_ip(hostvars[inventory_hostname]) }}"
   tags: [never,configure-networking]
+
+- import_tasks: configure-apt.yml
+  become: true
+  tags: [never,configure-apt]

@@ -1,0 +1,25 @@
+- name: copy tinyproxy packages
+  copy:
+    src: "{{ assets_download_dir }}/{{ item.filename }}"
+    dest: "/var/tmp/{{ item.filename }}"
+    force: no
+  with_items: "{{ tinyproxy_packages }}"
+
+- name: install tinyproxy
+  apt:
+    deb: "/var//tmp/{{ item.filename }}"
+  with_items: "{{ tinyproxy_packages }}"
+
+- name: configure tinyproxy
+  template:
+    src: tinyproxy/tinyproxy.conf.j2
+    dest: /etc/tinyproxy/tinyproxy.conf
+  register: tinyproxy
+  when: local_proxy is defined and local_proxy['enabled']
+
+- name: restart tinyproxy
+  service:
+    name: tinyproxy
+    state: restarted
+    enabled: yes
+  when: tinyproxy.changed

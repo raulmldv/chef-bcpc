@@ -1,0 +1,30 @@
+- name: configure apt translations
+  copy:
+    src: apt/translations
+    dest: /etc/apt/apt.conf.d/translations
+
+- name: configure apt proxy
+  template:
+    src: apt/proxy.j2
+    dest: /etc/apt/apt.conf.d/proxy
+  when: local_proxy is defined and local_proxy['enabled']
+
+- name: check for apt i386 foreign architecture
+  shell: |
+    set -o pipefail
+    dpkg --print-foreign-architectures | grep i386
+  args:
+    executable: /bin/bash
+  register: apt_i386_arch
+  ignore_errors: True
+  changed_when: false
+
+- name: remove apt i386 foreign architecture
+  command: dpkg --remove-architecture i386
+  when: apt_i386_arch is succeeded
+
+- name: add bootstrap apt repo
+  apt_repository:
+    filename: bootstrap
+    repo: deb [trusted=yes] http://bootstrap:8081 bcpc main
+    state: present

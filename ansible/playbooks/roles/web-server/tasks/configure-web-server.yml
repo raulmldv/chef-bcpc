@@ -1,0 +1,81 @@
+- name: create web server assets folder
+  file:
+    path: /var/bcpc/www/files
+    state: directory
+    mode: 0755
+    recurse: true
+
+- include: upload-web-server-file.yml
+  with_items: "{{ all_web_server_assets }}"
+
+- name: create web server repo dirs
+  file:
+    path: /var/bcpc/www/repo/incoming
+    state: directory
+    mode: 0755
+    recurse: true
+
+- include: upload-web-server-deb.yml
+  with_items: "{{ all_web_server_debs }}"
+
+- name: install aptly
+  apt:
+    deb: /var/bcpc/www/repo/incoming/{{ aptly_package.filename }}
+
+- name: configure aptly
+  copy:
+    src: aptly/aptly.conf
+    dest: /etc/aptly.conf
+
+- name: create aptly service unit
+  copy:
+    src: aptly/aptly.service
+    dest: /etc/systemd/system/aptly.service
+  register: aptly_service_unit_installed
+
+- name: force systemd to reread configs
+  systemd:
+    daemon_reload: yes
+  when: aptly_service_unit_installed
+
+- name: check for aptly repo
+  shell: |
+    set -o pipefail
+    aptly repo list -raw | grep bcpc
+  args:
+    executable: /bin/bash
+  register: aptly_repo_check
+  ignore_errors: true
+  changed_when: false
+
+- name: create aptly repo
+  command: aptly repo create bcpc
+  when: aptly_repo_check is failed
+
+- name: add deb packages to aptly repo
+  shell: aptly repo add bcpc /var/bcpc/www/repo/incoming/*.deb
+  changed_when: false
+
+- name: check for published aptly repo
+  shell: |
+    set -o pipefail
+    aptly publish list -raw | grep bcpc
+  args:
+    executable: /bin/bash
+  register: aptly_publish_check
+  ignore_errors: true
+  changed_when: false
+
+- name: publish aptly repo
+  command: aptly publish repo -distribution bcpc -skip-signing bcpc
+  when: aptly_publish_check is failed
+
+- name: update published aptly repo
+  command: aptly publish update bcpc
+  when: aptly_publish_check is succeeded
+
+- name: enable and start aptly service
+  service:
+    name: aptly
+    enabled: true
+    state: started

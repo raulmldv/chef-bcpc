@@ -82,6 +82,21 @@ def find_asset(a, *args, **kw):
     raise ValueError("could not find {}".format(asset_to_find))
 
 
+def find_assets(a, *args, **kw):
+
+    asset_to_find = a
+    assets = args[0]
+    matching_assets = []
+
+    for asset in assets:
+        if asset_to_find in asset['name']:
+            matching_assets.append(asset)
+    if matching_assets:
+        return matching_assets
+
+    raise ValueError("could not find {}".format(asset_to_find))
+
+
 def osadmin(a, *args, **kw):
 
     cloud_vars = a
@@ -116,6 +131,7 @@ class FilterModule(object):
         'transit_interfaces': transit_interfaces,
         'update_chef_node_host_vars': update_chef_node_host_vars,
         'find_asset': find_asset,
+        'find_assets': find_assets,
         'osadmin': osadmin
     }
 

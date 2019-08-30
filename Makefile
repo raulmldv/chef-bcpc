@@ -13,10 +13,11 @@ all : \
 	sync-assets \
 	configure-operator \
 	configure-networking \
+	configure-web-server \
+	configure-apt \
 	configure-chef-server \
 	configure-chef-workstation \
 	configure-chef-nodes \
-	configure-web-server \
 	run-chef-client \
 	add-cloud-images \
 	register-compute-nodes \
@@ -59,6 +60,24 @@ sync-assets :
 	ansible-playbook -v \
 		-i ${inventory} ${playbooks}/site.yml \
 		-t sync-assets --limit localhost
+
+configure-apt :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-apt --limit cloud
+
+configure-tinyproxy :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-tinyproxy --limit cloud
+
+configure-bird :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-bird --limit cloud
 
 configure-chef-server :
 
@@ -150,7 +169,7 @@ configure-web-server :
 
 	ansible-playbook -v \
 		-i ${inventory} ${playbooks}/site.yml \
-		-t web-server --limit bootstraps
+		-t configure-web-server --limit bootstraps
 
 configure-host-aggregates :
 
