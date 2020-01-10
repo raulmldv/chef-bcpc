@@ -18,9 +18,8 @@
 package 'systemd'
 service 'systemd-journald'
 
-execute 'reload journald' do
-  action :nothing
-  command 'systemctl restart systemd-journald'
+service 'systemd-journald' do
+  action :restart
 end
 
 # Update the default journal configuration to allow for greater logging
