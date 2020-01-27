@@ -129,16 +129,62 @@ disable_services.each do |svc|
   end
 end
 
-motd_packages = %w(
+remove_packages = %w(
   ubuntu-advantage-tools
   update-notifier-common
   ubuntu-release-upgrader-core
+  landscape-common
 )
 
-package motd_packages do
+package remove_packages do
   action :purge
 end
 
 file '/etc/default/motd-news' do
   content 'ENABLED=0'
+end
+
+# Can also do per-user shells, params with:
+# 'service-user' => {'shell': '/bin/false', 'comment': "Service user"},
+# Then in the loop, call:
+# shell params[:shell]
+#
+
+bcpc_users = {
+  'cinder'    => {action: :modify, 'comment': "Cinder block service"},
+  'glance'    => {action: :modify, 'comment': "Glance image service"},
+  'heat'      => {action: :modify, 'comment': "Heat orchestration service"},
+  'horizon'   => {action: :modify, 'comment': "OpenStack dashboard"},
+  'keystone'  => {action: :modify, 'comment': "OpenStack auth API service user"},
+  'lxd'       => {action: :modify, 'comment': "LXD container service user"},
+  'memcache'  => {action: :modify, 'comment': "Distributed caching services"},
+  'mysql'     => {action: :modify, 'comment': "SQL database services"},
+  'neutron'   => {action: :modify, 'comment': "OpenStack networking services"},
+  'nova'      => {action: :modify, 'comment': "OpenStack compute services"},
+  'pdns'      => {action: :modify, 'comment': "PowerDNS user"},
+  'pollinate' => {action: :modify, 'comment': "Dynamic vendor data services"},
+  'vboxadd'   => {action: :modify, 'comment': "VirtualBox service user"},
+  'zvmsdk'    => {action: :modify, 'comment': "IBM xCAT service user"},
+  'games'     => {action: :remove},
+  'gnats'     => {action: :remove},
+  'irc'       => {action: :remove},
+  'list'      => {action: :remove},
+  'lp'        => {action: :remove},
+  'news'      => {action: :remove},
+  'uucp'      => {action: :remove}
+}
+
+bcpc_users.each do |u, params|
+  user u do
+    shell '/usr/sbin/nologin'
+    comment params[:comment]
+    password '*'
+    action params[:action]
+    only_if node['etc']['passwd'].include? u && params[:action] == :remove
+  end
+end
+
+execute 'sort_passwd_group' do
+  command '/usr/sbin/pwck -s'
+  command '/usr/sbin/grpck -s'
 end
