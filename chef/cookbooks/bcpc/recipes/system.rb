@@ -16,6 +16,7 @@
 # limitations under the License.
 
 # ipmi module loading and configuration
+
 execute 'load ipmi_devintf kernel module' do
   command 'modprobe ipmi_devintf'
   not_if 'lsmod | grep ipmi_devintf'
@@ -175,12 +176,12 @@ bcpc_users = {
 }
 
 bcpc_users.each do |u, params|
+  next if params[:action] == :modify && ! node['etc']['passwd'].include?(u)
   user u do
     shell '/usr/sbin/nologin'
     comment params[:comment]
     password '*'
     action params[:action]
-    only_if node['etc']['passwd'].include? u && params[:action] == :remove
   end
 end
 
