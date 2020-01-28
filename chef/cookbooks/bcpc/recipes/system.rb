@@ -16,7 +16,6 @@
 # limitations under the License.
 
 # ipmi module loading and configuration
-
 execute 'load ipmi_devintf kernel module' do
   command 'modprobe ipmi_devintf'
   not_if 'lsmod | grep ipmi_devintf'
@@ -149,8 +148,6 @@ end
 # 'service-user' => {'shell': '/bin/false', 'comment': "Service user"},
 # Then in the loop, call:
 # shell params[:shell]
-#
-
 bcpc_users = {
   'cinder'    => {action: :modify, 'comment': "Cinder block service"},
   'glance'    => {action: :modify, 'comment': "Glance image service"},
@@ -185,7 +182,10 @@ bcpc_users.each do |u, params|
   end
 end
 
-execute 'sort_passwd_group' do
+execute 'sort_passwd' do
   command '/usr/sbin/pwck -s'
+end
+
+execute 'sort_group' do
   command '/usr/sbin/grpck -s'
 end
