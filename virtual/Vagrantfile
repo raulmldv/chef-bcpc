@@ -71,6 +71,11 @@ Vagrant.configure('2') do |config|
     config.vm.define vm_name do |subconfig|
       # vm provisioners starts
 
+      subconfig.trigger.after :up do |trigger|
+        trigger.warn = "Rebooting node after installation to activate the new kernel"
+        trigger.run_remote = {inline: "/sbin/shutdown -r now"}
+      end
+
       # create default user
       subconfig.vm.provision 'shell' do |shell|
         shell.path = 'provisioners/create-default-user.sh'
@@ -80,6 +85,11 @@ Vagrant.configure('2') do |config|
       # modify the vagrant user
       subconfig.vm.provision 'shell' do |shell|
         shell.path = 'provisioners/modify-vagrant-user.sh'
+      end
+
+      # update packages as needed
+      subconfig.vm.provision 'shell' do |shell|
+        shell.path = 'provisioners/update-packages.sh'
       end
 
       # vm provisioners ends
@@ -112,6 +122,13 @@ Vagrant.configure('2') do |config|
         vb.name = vm_name
         vb.cpus = hw_profile['cpus']
         vb.memory = hw_profile['ram_gb'] * 1024
+
+        # Set/correct time on start and resume, addresses an e1000 bug when VM is resumed from suspend
+        vb.customize ['guestproperty', 'set', :id, '/VirtualBox/GuestAdd/VBoxService/--timesync-interval', 10000 ]
+        vb.customize ['guestproperty', 'set', :id, '/VirtualBox/GuestAdd/VBoxService/--timesync-min-adjust', 50 ]
+        vb.customize ['guestproperty', 'set', :id, '/VirtualBox/GuestAdd/VBoxService/--timesync-set-on-restore', 1 ]
+        vb.customize ['guestproperty', 'set', :id, '/VirtualBox/GuestAdd/VBoxService/--timesync-set-start', 1 ]
+        vb.customize ['guestproperty', 'set', :id, '/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold', 1000 ]
         vb.customize ['modifyvm', :id, '--groups', project_name]
         vb.customize ['modifyvm', :id, '--uart1', '0x3F8', '4']
         vb.customize ['modifyvm', :id, '--uart2', '0x2F8', '3']

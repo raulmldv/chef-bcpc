@@ -27,6 +27,14 @@ create: create-virtual-network create-virtual-hosts
 
 destroy: destroy-virtual-hosts destroy-virtual-network
 
+suspend:
+	cd virtual && vagrant suspend
+	cd virtual/network && vagrant suspend
+
+resume:
+	cd virtual/network && vagrant resume
+	cd virtual && vagrant resume
+
 create-virtual-hosts :
 
 	virtual/bin/create-virtual-environment.sh

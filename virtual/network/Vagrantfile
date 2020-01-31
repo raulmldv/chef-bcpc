@@ -22,7 +22,7 @@ def mount_apt_cache(config)
   user_data_path = Vagrant.user_data_path.to_s
   cache_dir = File.join(user_data_path, 'cache', 'apt', config.vm.box)
   apt_cache_dir = '/var/cache/apt/archives'
-  config.vm.synced_folder cache_dir, apt_cache_dir, create: true
+  config.vm.synced_folder cache_dir, apt_cache_dir, create: true, owner: '_apt'
 end
 
 def setup_proxy(node)
@@ -82,6 +82,8 @@ Vagrant.configure(2) do |config|
         setup_proxy(node)
         node.vm.provision 'shell', path: 'provisioner.sh', args: "tor#{i}"
         node.vm.hostname = "tor#{i}"
+        # Reboot after new kernel package(s) are installed
+        node.trigger.after [:up], run: {inline: "vagrant reload tor#{i}"}
       end
     end
 
@@ -105,6 +107,8 @@ Vagrant.configure(2) do |config|
         setup_proxy(node)
         node.vm.provision 'shell', path: 'provisioner.sh', args: "spine#{i}"
         node.vm.hostname = "spine#{i}"
+        # Reboot after new kernel package(s) are installed
+        node.trigger.after [:up], run: {inline: "vagrant reload spine#{i}"}
       end
     end
   end

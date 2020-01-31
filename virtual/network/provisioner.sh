@@ -55,7 +55,7 @@ package_installation() {
     dpkg --remove-architecture i386
     apt="sudo DEBIAN_FRONTEND=noninteractive apt-get -y"
     ${apt} update
-    ${apt} install lldpd traceroute bird iptables-persistent
+    ${apt} install lldpd traceroute bird iptables-persistent linux-image-generic
 }
 
 package_installation
