@@ -78,7 +78,7 @@ execute 'install rally in virtualenv' do
   retries 3
   user 'rally'
   command <<-EOH
-    virtualenv --no-download #{venv_dir}
+    virtualenv --no-download #{venv_dir} -p /usr/bin/python3
     . #{venv_dir}/bin/activate
     pip install --upgrade pbr
     pip install --upgrade rally-openstack==#{rally_openstack_version} rally==#{rally_version}
