@@ -40,5 +40,6 @@
   when: configure_network_interfaces | default(true)
 
 - import_tasks: configure-chrony.yml
+  tags: [configure-chrony]
 
 - import_tasks: configure-sshd.yml
