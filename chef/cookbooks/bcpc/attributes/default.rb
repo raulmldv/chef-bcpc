@@ -11,15 +11,6 @@ default['bcpc']['cloud']['region'] = node.chef_environment
 default['bcpc']['web_server']['url'] = 'http://bootstrap:8080/files/'
 
 ###############################################################################
-# ubuntu
-###############################################################################
-
-default['bcpc']['ubuntu']['repo']['archive_url'] = 'http://archive.ubuntu.com/ubuntu'
-default['bcpc']['ubuntu']['repo']['security_url'] = 'http://security.ubuntu.com/ubuntu'
-default['bcpc']['ubuntu']['repo']['key'] = 'apt/release.key'
-default['bcpc']['ubuntu']['repo']['components'] = %w(main restricted universe multiverse)
-
-###############################################################################
 # grub
 ###############################################################################
 
