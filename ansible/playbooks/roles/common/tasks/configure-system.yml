@@ -139,6 +139,7 @@
     - lxd
     - rpcbind
     - snapd
+  ignore_errors: yes
 
 # Purge some Ubuntu packages
 - name: Purge undesirable packages
@@ -165,8 +166,11 @@
 # Configure system kernel
 - name: Configure system kernel
   apt:
-    name: "linux-{{ kernel_variant }}"
+    name: "{{ item }}"
   when: not kernel_pin_version
+  with_items:
+    - "linux-{{ kernel_variant }}"
+    - "linux-tools-{{ kernel_variant }}"
 
 - name: Configure versioned system kernel
   apt:
@@ -177,3 +181,5 @@
     - "linux-image-{{ kernel_version }}-{{ kernel_variant }}"
     - "linux-modules-{{ kernel_version }}-{{ kernel_variant }}"
     - "linux-modules-extra-{{ kernel_version }}-{{ kernel_variant }}"
+    # HWE kernel-specific tools are pulled in by {{ version }}-generic metapackages.
+    - "linux-tools-{{ kernel_version }}-{{ 'generic' if kernel_variant != 'lowlatency' else 'lowlatency' }}"
