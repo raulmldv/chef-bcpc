@@ -15,7 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package 'python-futurist'
+package 'python-futurist' do
+  options '--no-install-recommends'
+end
 
 target = node['bcpc']['etcd3gw']['remote_file']['file']
 save_path = "#{Chef::Config[:file_cache_path]}/#{target}"

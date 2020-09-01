@@ -39,6 +39,7 @@ package %w(
   python-six
   python-ldap
   python-configparser
+  python-setuptools
   xinetd
   python-openstackclient
   jq
@@ -48,7 +49,9 @@ package %w(
   vim
   ksh
   bash-completion
-)
+) do
+  options '--no-install-recommends'
+end
 
 cookbook_file '/etc/screenrc' do
   source 'screen/screenrc'
