@@ -55,7 +55,7 @@ Create a Python virtual environment (virtualenv) and activate it
 
 ```shell
 python3 -mvenv venv
-source venv/bin/activiate
+source venv/bin/activate
 pip install PyYaml ansible netaddr pyOpenSSL pycryptodome
 ```
 
