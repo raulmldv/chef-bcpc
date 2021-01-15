@@ -58,7 +58,7 @@ fi
     vagrant up
 
     # reload vms to load new kernel
-    vagrant reload
+    #vagrant reload
 
     # export ssh config file for ansible inventory parsing
     vagrant ssh-config > "${ssh_config_file}"

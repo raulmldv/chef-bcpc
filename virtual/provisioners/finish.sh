@@ -91,11 +91,11 @@ done
 function main {
     create_operations_user
     configure_vagrant_user
-    configure_apt
-    upgrade_system
-    download_debs
+    #configure_apt
+    #upgrade_system
+    #download_debs
     configure_swap
-    configure_linux_kernel
+    #configure_linux_kernel
 }
 
 function create_operations_user {
