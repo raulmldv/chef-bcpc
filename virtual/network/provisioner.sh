@@ -21,11 +21,6 @@ set -eux
 
 on_edge_flag=0
 
-DHCP_CONF='      dhcp4: true'
-# shellcheck disable=SC1004
-STATIC_CONF='      addresses:\n        - 10.0.2.15/24\n      nameservers:\
-        addresses:\n          - 10.0.2.3'
-
 on_edge() {
     [[ ${on_edge_flag} == 1 ]]
 }
@@ -51,15 +46,21 @@ base_config() {
         sudo systemctl stop ${s}
         sudo systemctl disable ${s}
     done
-    if on_edge "${1}" ; then
-        sudo cp "/vagrant/netplan/${1}.yaml" /etc/netplan/01-netcfg.yaml
-    else
-        sudo dhclient -x
-        sed "s|${DHCP_CONF}|${STATIC_CONF}|" \
-            "/vagrant/netplan/${1}.yaml" | sudo tee /etc/netplan/01-netcfg.yaml
-    fi
+    # TODO: use `dhcp4-overrides` instead of this bad hack
+    # TODO: once supported by future Ubuntu/netplan.io?
+    cp /vagrant/netplan/conditionally-remove-default-route.sh /etc/networkd-dispatcher/routable.d
+    sed -i "s/@on_edge_flag@/${on_edge_flag}/g" /etc/networkd-dispatcher/routable.d/conditionally-remove-default-route.sh
+    chmod +x /etc/networkd-dispatcher/routable.d/conditionally-remove-default-route.sh
+    cp /vagrant/netplan/${1}.yaml /etc/netplan/01-netcfg.yaml
     sudo netplan apply
     sudo systemctl restart lldpd
+}
+
+systemd_configuration() {
+    systemctl disable systemd-resolved
+    systemctl stop systemd-resolved
+    source /dev/stdin <<< $( netplan ip leases eth0 )
+    echo "nameserver ${DNS}" > /etc/resolv.conf
 }
 
 apt_configuration() {
@@ -91,6 +92,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+systemd_configuration
 apt_configuration
 package_installation
 base_config "${1}"

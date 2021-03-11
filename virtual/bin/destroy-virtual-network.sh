@@ -25,3 +25,17 @@ if [ "${VAGRANT_DEFAULT_PROVIDER}" == "libvirt" ] ; then
 fi
 
 (cd "${network_dir}"; vagrant destroy -f)
+
+
+# TODO: Clobber only VMs and networks associated with this build
+#   * build_hash=$( cd {$root_dir}/virtual/lib | tr -d '\n' | sha1sum )
+#     * take the first 8 chars of the build hash
+#   * assume 'virtual' if BCC_ENABLE_LIBVIRT_PREFIX is undef or not true
+#   * grep virsh [list,net-list] for "^${hash}_" and clobber only that
+#if [ "${VAGRANT_DEFAULT_PROVIDER}" == "libvirt" ] ; then
+#    for NET in `virsh net-list | grep active | awk '{print $1}'`
+#    do
+#	virsh net-destroy ${NET}
+#	virsh net-undefine ${NET}
+#    done
+#fi
