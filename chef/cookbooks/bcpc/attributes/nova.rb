@@ -31,9 +31,12 @@ default['bcpc']['nova']['notifications']['driver'] = 'messagingv2'
 default['bcpc']['nova']['notifications']['notify_on_state_change'] = 'vm_and_task_state'
 
 # CPU passthrough/masking configurations
-default['bcpc']['nova']['cpu_config']['cpu_mode'] = 'custom'
-default['bcpc']['nova']['cpu_config']['cpu_model'] = 'kvm64'
-default['bcpc']['nova']['cpu_config']['cpu_model_extra_flags'] = []
+default['bcpc']['nova']['cpu_config']['AuthenticAMD']['cpu_mode'] = 'custom'
+default['bcpc']['nova']['cpu_config']['AuthenticAMD']['cpu_model'] = 'qemu64'
+default['bcpc']['nova']['cpu_config']['AuthenticAMD']['cpu_model_extra_flags'] = []
+default['bcpc']['nova']['cpu_config']['GenuineIntel']['cpu_mode'] = 'custom'
+default['bcpc']['nova']['cpu_config']['GenuineIntel']['cpu_model'] = 'qemu64'
+default['bcpc']['nova']['cpu_config']['GenuineIntel']['cpu_model_extra_flags'] = []
 
 # select from between this many equally optimal hosts when launching an instance
 default['bcpc']['nova']['scheduler_host_subset_size'] = 3
@@ -107,3 +110,8 @@ default['bcpc']['nova']['db-archive']['cron_day'] = '*'
 default['bcpc']['nova']['db-archive']['cron_weekday'] = '6'
 default['bcpc']['nova']['db-archive']['cron_hour'] = '4'
 default['bcpc']['nova']['db-archive']['cron_minute'] = '0'
+
+# Anti-affinity availability zone scheduler filter
+default['bcpc']['nova']['scheduler']['filter']['anti_affinity_availability_zone']['enabled'] = false
+default['bcpc']['nova']['scheduler']['filter']['anti_affinity_availability_zone']['name'] = 'AntiAffinityAvailabilityZoneFilter'
+default['bcpc']['nova']['scheduler']['filter']['anti_affinity_availability_zone']['filterPath'] = 'nova.scheduler.filters.anti_affinity_availability_zone_filter.AntiAffinityAvailabilityZoneFilter'

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2020, Bloomberg Finance L.P.
+# Copyright 2021, Bloomberg Finance L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,10 +55,7 @@ fi
 # bring up vagrant/virtualbox nodes
 (
     cd "${virtual_dir}"
-    vagrant up
-
-    # reload vms to load new kernel
-    vagrant reload
+    vagrant up --parallel
 
     # export ssh config file for ansible inventory parsing
     vagrant ssh-config > "${ssh_config_file}"
