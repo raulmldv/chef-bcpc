@@ -15,6 +15,9 @@ default['bcpc']['nova']['ceph']['user'] = 'nova'
 default['bcpc']['nova']['ceph']['pool']['name'] = 'vms'
 default['bcpc']['nova']['ceph']['pool']['size'] = 1
 
+# Allow destination machine to match source for resize
+default['bcpc']['nova']['allow_resize_to_same_host'] = true
+
 # Defines which physical CPUs (pCPUs) can be used by instance virtual CPUs
 default['bcpc']['nova']['vcpu_pin_set'] = nil
 
@@ -66,7 +69,8 @@ default['bcpc']['nova']['resume_guests_state_on_host_boot'] = false
 default['bcpc']['nova']['default_log_levels'] = nil
 
 # The loopback address matches what Calico's Felix defaults to for metadata
-default['bcpc']['nova']['metadata_listen'] = '127.0.0.1'
+default['bcpc']['nova']['metadata']['listen'] = '127.0.0.1'
+default['bcpc']['nova']['metadata']['cache_expiration'] = 60
 
 # Nova scheduler default filters
 default['bcpc']['nova']['scheduler_default_filters'] = %w(

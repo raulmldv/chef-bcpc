@@ -3,6 +3,7 @@
 #
 [DEFAULT]
 debug = false
+allow_resize_to_same_host = <%= node['bcpc']['nova']['allow_resize_to_same_host'] %>
 compute_monitors = cpu.virt_driver
 vif_plugging_is_fatal = false
 vif_plugging_timeout = 0
@@ -37,7 +38,8 @@ osapi_compute_workers = <%= node['bcpc']['openstack']['services']['workers'] %>
 <% end %>
 <% else %>
 enabled_apis = metadata
-metadata_listen = <%= node['bcpc']['nova']['metadata_listen'] %>
+metadata_cache_expiration = <%= node['bcpc']['nova']['metadata']['cache_expiration'] %>
+metadata_listen = <%= node['bcpc']['nova']['metadata']['listen'] %>
 <% if node['bcpc']['nova']['workers'] %>
 metadata_workers = <%= node['bcpc']['nova']['workers'] %>
 <% else %>
