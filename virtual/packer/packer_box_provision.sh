@@ -50,6 +50,8 @@ deb ${apt_url} bionic-updates main restricted universe multiverse
 EOF
     fi
 
+    echo 'APT::Install-Recommends "false";' \
+	 >> /etc/apt/apt.conf.d/99no-install-recommends
     apt-get update
 }
 
