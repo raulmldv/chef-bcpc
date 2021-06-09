@@ -52,8 +52,15 @@ end
 
 # install patched dhcp.py for calico-dhcp-agent
 # https://bugs.launchpad.net/neutron/+bug/1915480
-cookbook_file '/usr/lib/python2.7/dist-packages/neutron/agent/linux/dhcp.py' do
+cookbook_file '/usr/lib/python3/dist-packages/neutron/agent/linux/dhcp.py' do
   source 'neutron/dhcp.py'
+  notifies :restart, 'service[calico-dhcp-agent]', :immediately
+end
+
+# install patched etcdv3.py for networking-calico
+# https://github.com/projectcalico/networking-calico/pull/58
+cookbook_file '/usr/lib/python3.6/dist-packages/networking_calico/etcdv3.py' do
+  source 'calico/etcdv3.py'
   notifies :restart, 'service[calico-dhcp-agent]', :immediately
 end
 
