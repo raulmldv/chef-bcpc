@@ -77,6 +77,14 @@ execute "add #{openstack['role']} role to #{openstack['username']} user" do
   DOC
 end
 
+ruby_block 'collect openstack service and endpoints list' do
+  block do
+    node.run_state['os_endpoints'] = openstack_endpoints()
+    node.run_state['os_services'] = openstack_services()
+  end
+  action :run
+end
+
 # create infra-optim service and endpoints
 begin
   type = 'infra-optim'
@@ -89,7 +97,7 @@ begin
     command <<-DOC
       openstack service create --name "#{name}" --description "#{desc}" #{type}
     DOC
-    not_if "openstack service list | grep #{type}"
+    not_if { node.run_state['os_services'].include? type }
   end
 
   %w(admin internal public).each do |uri|
@@ -99,7 +107,8 @@ begin
       command <<-DOC
         openstack endpoint create --region #{region} #{type} #{uri} '#{url}'
       DOC
-      not_if "openstack endpoint list | grep #{type} | grep #{uri}"
+
+      not_if { node.run_state['os_endpoints'].fetch(type, []).include? uri }
     end
   end
 end
@@ -233,4 +242,10 @@ template '/etc/haproxy/haproxy.d/watcher.cfg' do
     vip: node['bcpc']['cloud']['vip']
   )
   notifies :reload, 'service[haproxy-watcher]', :immediately
+end
+
+execute 'wait for watcher api to become available' do
+  environment os_adminrc
+  retries 15
+  command 'openstack optimize strategy list'
 end
