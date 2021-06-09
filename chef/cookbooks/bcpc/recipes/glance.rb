@@ -77,6 +77,14 @@ end
 #
 # create/configure glance openstack user ends
 
+ruby_block 'collect openstack service and endpoints list' do
+  block do
+    node.run_state['os_endpoints'] = openstack_endpoints()
+    node.run_state['os_services'] = openstack_services()
+  end
+  action :run
+end
+
 # create image service and endpoints starts
 #
 begin
@@ -93,7 +101,7 @@ begin
       openstack service create --name "#{name}" --description "#{desc}" #{type}
     DOC
 
-    not_if "openstack service list | grep #{type}"
+    not_if { node.run_state['os_services'].include? type }
   end
 
   %w(admin internal public).each do |uri|
@@ -106,7 +114,7 @@ begin
         openstack endpoint create --region #{region} #{type} #{uri} '#{url}'
       DOC
 
-      not_if "openstack endpoint list | grep #{type} | grep #{uri}"
+      not_if { node.run_state['os_endpoints'].fetch(type, []).include? uri }
     end
   end
 end

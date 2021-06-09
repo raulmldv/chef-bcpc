@@ -210,11 +210,6 @@ execute 'bootstrap the identity service' do
   DOC
 end
 
-# use multi-domain keystone policy
-remote_file '/etc/keystone/policy.json' do
-  source 'file:///usr/share/keystone/policy.v3cloudsample.json'
-end
-
 # create policy.d dir for policy overrides
 directory '/etc/keystone/policy.d' do
   action :create
