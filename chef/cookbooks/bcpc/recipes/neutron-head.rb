@@ -114,7 +114,7 @@ begin
           --region #{region} #{type} #{uri} '#{url}'
       DOC
 
-      not_if "openstack endpoint list \
+      not_if "openstack endpoint list --region #{region} \
         | grep #{type} | grep #{uri}
       "
     end

@@ -106,7 +106,7 @@ begin
         openstack endpoint create --region #{region} #{type} #{uri} '#{url}'
       DOC
 
-      not_if "openstack endpoint list | grep #{type} | grep #{uri}"
+      not_if "openstack endpoint list --region #{region} | grep #{type} | grep #{uri}"
     end
   end
 end
