@@ -148,6 +148,31 @@ package 'calico-control' do
   notifies :restart, 'service[neutron-server]', :delayed
 end
 
+# install patched db_base_plugin_v2.py for neutron-lib
+# https://bugs.launchpad.net/neutron/+bug/1918145
+ruby_block 'get admin project uuid' do
+  block do
+    Chef::Resource::RubyBlock.send(:include, Chef::Mixin::ShellOut)
+    os_command = "openstack project show -f value -c id #{node['bcpc']['openstack']['admin']['project']}"
+    node.run_state['admin_tenant_uuid'] = shell_out(os_command, env: os_adminrc).stdout.rstrip()
+  end
+  action :run
+end
+
+template '/usr/lib/python3/dist-packages/neutron/db/db_base_plugin_v2.py' do
+  source 'neutron/db_base_plugin_v2.py.erb'
+  variables(
+    admin_tenant_uuid: lazy { node.run_state['admin_tenant_uuid'] }
+  )
+  notifies :run, 'execute[py3compile-neutron]', :immediately
+  notifies :restart, 'service[neutron-server]', :delayed
+end
+
+execute 'py3compile-neutron' do
+  action :nothing
+  command 'py3compile -p python3-neutron'
+end
+
 # install patched etcdv3.py for networking-calico
 # https://github.com/projectcalico/networking-calico/pull/58
 cookbook_file '/usr/lib/python3.6/dist-packages/networking_calico/etcdv3.py' do
@@ -388,11 +413,8 @@ node['bcpc']['neutron']['networks'].each do |network|
   execute "create the #{fixed_network} network router (#{router_name})" do
     environment os_adminrc
 
-    # TODO: @tstachecki: Train will create routers, but throws an exception while doing so.
-    # Introduce a big fat kludge and remove it once we upgrade to Ussuri.
     command <<-DOC
-      openstack router create #{router_name} || /bin/true
-      openstack router list --format json | jq -re '.[] | select(.Name == "#{router_name}").ID'
+      openstack router create #{router_name}
     DOC
 
     not_if { node.run_state['os_routers'].include? router_name }
