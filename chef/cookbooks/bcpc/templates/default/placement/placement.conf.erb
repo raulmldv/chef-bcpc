@@ -1,0 +1,35 @@
+# for an overview of all the available configuration options for placement@stein
+# go to: https://docs.openstack.org/placement/stein/configuration/config.html
+#
+[DEFAULT]
+debug = <%= node['bcpc']['placement']['debug'] %>
+state_path = /var/lib/placement
+
+<% if not node['bcpc']['nova']['default_log_levels'].nil? %>
+default_log_levels = "<%= node['bcpc']['nova']['default_log_levels'] %>"
+<% end %>
+
+[api]
+auth_strategy = keystone
+
+[keystone_authtoken]
+auth_uri = <%= "https://#{@node['bcpc']['cloud']['fqdn']}:5000/" %>
+auth_url = <%= "https://#{@node['bcpc']['cloud']['fqdn']}:35357/" %>
+memcached_servers = <%= @headnodes.map{ |n| "#{n['service_ip']}:11211" }.join(',') %>
+auth_type = password
+project_name = service
+project_domain_name = Default
+user_domain_name = Default
+username = <%= @config['placement']['creds']['os']['username'] %>
+password = <%= @config['placement']['creds']['os']['password'] %>
+
+[placement_database]
+connection = <%= "mysql+pymysql://#{@db['username']}:#{@db['password']}@#{@db['host']}:#{@db['port']}/#{@db['dbname']}" %>
+max_overflow = <%= node['bcpc']['placement']['db']['max_overflow'] %>
+max_pool_size = <%= node['bcpc']['placement']['db']['max_pool_size'] %>
+
+[oslo_policy]
+policy_dirs = policy.d
+
+[oslo_concurrency]
+lock_path = /var/lib/placement/tmp
