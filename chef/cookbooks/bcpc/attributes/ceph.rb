@@ -11,6 +11,10 @@ default['bcpc']['ceph']['osds'] = %w(sdb sdc sdd sde)
 default['bcpc']['ceph']['choose_leaf_type'] = 0
 default['bcpc']['ceph']['osd_scrub_load_threshold'] = 0.5
 
+# https://docs.ceph.com/en/latest/security/CVE-2021-20288/
+# By default, new clusters should reclaim global_id for good security posture
+default['bcpc']['ceph']['mon_auth_allow_insecure_global_id_reclaim'] = false
+
 # The number of threads which the mon can scale to for intensive
 # operations (such as compaction).  Larger clusters may benefit from
 # more threads if they are available.
@@ -87,6 +91,11 @@ default['bcpc']['ceph']['bluestore_rocksdb_options'] = [
 ]
 
 default['bcpc']['ceph']['bluestore_cache_size_ssd'] = 10737418240
+
+# https://tracker.ceph.com/issues/50017
+# Some issues noted with multiple fsck/quick fix threads; we'll wait
+# around a bit longer if it improves odds that fsck doesn't shred OSDs.
+default['bcpc']['ceph']['bluestore_fsck_quick_fix_threads'] = 1
 
 # Set RBD default feature set to only include layering and
 # deep-flatten. Other values (in particular, exclusive-lock) may prevent
