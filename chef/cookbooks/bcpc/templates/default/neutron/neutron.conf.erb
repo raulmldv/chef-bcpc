@@ -26,6 +26,19 @@ etcd_ca_cert_file = <%= node['bcpc']['etcd']['ca']['crt']['filepath'] %>
 etcd_cert_file = <%= node['bcpc']['etcd']['client-rw']['crt']['filepath'] %>
 etcd_key_file = <%= node['bcpc']['etcd']['client-rw']['key']['filepath'] %>
 
+<% unless node['bcpc']['neutron']['calico']['num_port_status_threads'].nil? %>
+num_port_status_threads = <%= node['bcpc']['neutron']['calico']['num_port_status_threads'] %>
+<% end %>
+<% unless node['bcpc']['neutron']['calico']['etcd_compaction_period_mins'].nil? %>
+etcd_compaction_period_mins = <%= node['bcpc']['neutron']['calico']['etcd_compaction_period_mins'] %>
+<% end %>
+<% unless node['bcpc']['neutron']['calico']['etcd_compaction_min_revisions'].nil? %>
+etcd_compaction_min_revisions = <%= node['bcpc']['neutron']['calico']['etcd_compaction_min_revisions'] %>
+<% end %>
+<% unless node['bcpc']['neutron']['calico']['project_name_cache_max'].nil? %>
+project_name_cache_max = <%= node['bcpc']['neutron']['calico']['project_name_cache_max'] %>
+<% end %>
+
 [database]
 connection = <%= "mysql+pymysql://#{@db['username']}:#{@db['password']}@#{@db['host']}:#{@db['port']}/#{@db['dbname']}" %>
 max_pool_size = <%= node['bcpc']['neutron']['db']['max_pool_size'] %>
