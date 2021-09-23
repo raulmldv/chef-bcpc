@@ -15,11 +15,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Remove ProxySQL if it is not enabled
+# Remove old vars-user files
+# TODO: Remove me once enough time has passed since this file has been removed.
+file 'vars-user' do
+  path "#{node['bcpc']['proxysql']['datadir']}/files/vars-user"
+  action :delete
+end
+
+# Remove old Percona-based ProxySQL if service is not enabled
+# TODO: Remove me once enough time has passed since the default package has been
+# changed to ProxySQL 2.2.
 package 'remove proxysql2' do
   package_name 'proxysql2'
   action :purge
   not_if { node['bcpc']['proxysql']['enabled'] }
+end
+
+# Remove ProxySQL if it is not enabled
+# NOTE: As of 2.2.2 uninstalling ProxySQL does not actually stop the ProxySQL
+# service, hence the delayed call to 'kill proxysql'.
+# NOTE: /etc/proxysql-admin.cnf is deleted manually but the data dir is kept
+# in order to ease recovery, for future log analysis, etc.
+package 'remove proxysql' do
+  package_name 'proxysql'
+  action :purge
+  not_if { node['bcpc']['proxysql']['enabled'] }
+  notifies :run, 'execute[kill proxysql]', :delayed
+  notifies :delete, 'file[proxysql-admin]', :delayed
+end
+
+# Kill ProxySQL iff ProxySQL was uninstalled. Its execution is delayed to the
+# end of the chef run, after all relevant services have been switched over to
+# MySQL.
+execute 'kill proxysql' do
+  command 'killall proxysql || true'
+  action :nothing
+end
+
+# Remove the ProxySQL admin file on package purge
+file 'proxysql-admin' do
+  path '/etc/proxysql-admin.cnf'
+  action :nothing
 end
 
 return unless node['bcpc']['proxysql']['enabled']
@@ -34,7 +70,7 @@ config = data_bag_item(region, 'config')
 mysqladmin = mysqladmin()
 psqladmin = psqladmin()
 
-# hash defining the mysql monitor user used by ProxySQL
+# hash defining the MySQL monitor user used by ProxySQL
 #
 proxysqlmonitor = {
   'username' => config['proxysql']['creds']['db']['username'],
@@ -58,26 +94,46 @@ mysqlbackend = {
 # Installation #
 ################
 
-# Add the appropriate Percona repo
-include_recipe 'bcpc::percona-apt'
+# Define the repository to use
+repo = node['bcpc']['proxysql']['repo']
+
+# Add the specified repository
+apt_repository 'proxysql' do
+  uri repo['url']
+  distribution repo['distribution']
+  components ['main']
+  key repo['key']
+  only_if { repo['enabled'] }
+end
 
 # Install ProxySQL
 #
-# NOTE: When ProxySQL is first installed it is automatically started with
-# a default configuration. In order to force ProxySQL to re-read its
-# configuration file we need to either delete its database or start the
-# process using the 'initial' flag.
+# NOTE: When ProxySQL is first installed it is not automatically started. We
+# configure it, start it, after which ProxySQL writes its configuration
+# database.
+# NOTE: If ProxySQL is running and you want to force it to re-read its
+# configuration file, you need to either delete its database or start the
+# process using the 'initial' flag. The latter can be done via the
+# proxysql-initial.service systemd target.
+package 'install proxysql' do
+  package_name 'proxysql'
+  action :install
+  notifies :run, 'ruby_block[set proxysql fresh install]', :before
+  notifies :run, 'execute[backup existing proxysql data directory]', :before
+end
+
+# Upgrade ProxySQL.
 #
-# The latter cannot be done via `systemctl` because Percona have not included
-# the proxysql-initial.service systemd target in their package, and attempting
-# to do so via `services` results in failures to stop the service due to
-# differences in how process PIDs are handled (`systemctl` is used to start
-# the service for the first time).
-#
-# Until Percona updates their package we will use the former method.
-package 'proxysql2' do
-  notifies :stop, 'service[proxysql]', :immediately
-  notifies :run, 'ruby_block[set proxysql fresh install]', :immediately
+# NOTE: We perform installation and upgrades separately in order to be able to
+# differentiate between fresh installs and upgrades.
+# NOTE: ProxySQL needs to be restarted in order for the new binary to be used.
+# NOTE: It is recommended to use a snapshot of a repository, otherwise ProxySQL
+# may unintentionally be upgraded.
+package 'upgrade proxysql' do
+  package_name 'proxysql'
+  action :upgrade
+  notifies :run, 'ruby_block[set restart after config flag]', :immediately
+  notifies :restart, 'service[proxysql conditional restart]', :immediately
 end
 
 # Set a flag indicating ProxySQL was freshly installed
@@ -88,14 +144,20 @@ ruby_block 'set proxysql fresh install' do
   end
 end
 
-# Delete the ProxySQL configuration DB
-execute 'delete default proxysql config db' do
-  command "rm -f #{node['bcpc']['proxysql']['default_datadir']}/proxysql.db"
-  only_if { node.run_state['proxysql_fresh_install'] }
+# Before ProxySQL is installed, move (and thus back up) the existing ProxySQL
+# data directory, if any.
+execute 'backup existing proxysql data directory' do
+  command "if [ -d \"#{node['bcpc']['proxysql']['default_datadir']}\" ] ; then \
+      mv #{node['bcpc']['proxysql']['default_datadir']}/ \
+        #{File.dirname(node['bcpc']['proxysql']['default_datadir'])}/proxysql-$(date +%s); \
+    fi"
+  action :nothing
 end
 
-# Declare the service resource
-service 'proxysql'
+# Install misc. packages used by helper scripts (free, awk, bc, date)
+package 'misc' do
+  package_name %w(procps bc coreutils gawk)
+end
 
 #########################
 # psql_monitor creation #
@@ -129,11 +191,11 @@ template '/tmp/proxysql-create-monitor-user.sql' do
   notifies :run, 'execute[create psql_monitor user]', :immediately
 end
 
-# Create/update the psql_monitor user on the mysql cluster if needed.
+# Create/update the psql_monitor user on the MySQL cluster if needed.
 # NOTE: The created user has 'USAGE' permissions to all databases, the same as
-# if we created it using the percona admin script. Password updates are
+# if we created it using the Percona admin script. Password updates are
 # propagated and username changes result in new users. Old users are not
-# deleted. May connect via % and localhost, like all other mysql users.
+# deleted. May connect via % and localhost, like all other MySQL users.
 execute 'create psql_monitor user' do
   action :nothing
   environment('MYSQL_PWD' => mysqladmin['password'])
@@ -162,6 +224,42 @@ template 'log crash script' do
   source 'proxysql/log-crash.sh.erb'
 end
 
+# Install the check query digest script
+cookbook_file 'check-query-digest' do
+  path "#{node['bcpc']['proxysql']['datadir']}/files/check-query-digest.sh"
+  mode '755'
+  source 'proxysql/check-query-digest.sh'
+end
+
+###########################
+# Logrotate Configuration #
+###########################
+
+# Create the MySQL CLI configuration file containing ProxySQL admin
+# credentials. This file is used by the logrotate script, but can also be used
+# to quickly connect to the local ProxySQL server.
+template 'mysql cnf for proxysql admin' do
+  path '/etc/proxysql-admin.cnf'
+  source 'proxysql/proxysql-admin.cnf.erb'
+  variables(
+    creds: config['proxysql']['creds'],
+    backend: mysqlbackend,
+    mysql_users: config['mysql']['users'],
+    query_rules: node['bcpc']['proxysql']['query_rules']
+  )
+end
+
+# Create the logrotate file that will rotate all ProxySQL log files.
+# NOTE: This will (and must) overwrite the one provided by the package.
+logrotate_app 'proxysql' do
+  path "#{node['bcpc']['proxysql']['datadir']}/*.log"
+  frequency 'daily'
+  options %w(missingok compress notifempty)
+  rotate 15
+  create '0600 proxysql proxysql'
+  postrotate 'mysql --defaults-file=/etc/proxysql-admin.cnf -Nse "PROXYSQL FLUSH LOGS"'
+end
+
 #########################
 # Service Configuration #
 #########################
@@ -174,30 +272,12 @@ template 'variables requiring restart' do
   notifies :run, 'ruby_block[set restart after config flag]', :immediately
 end
 
-# Create a template containing the values of variables that, when changed,
-# require users not defined in ProxySQL's configuration file to be updated.
-template 'user variables' do
-  path "#{node['bcpc']['proxysql']['datadir']}/files/vars-user"
-  source 'proxysql/vars-user.erb'
-  notifies :run, 'ruby_block[set user update flag]', :immediately
-end
-
-# Set a flag indicating proxysql needs to be restarted after the configuration
+# Set a flag indicating ProxySQL needs to be restarted after the configuration
 # is written to the database.
 ruby_block 'set restart after config flag' do
   action :nothing
   block do
     node.run_state['proxysql_restart_after_config'] = true
-  end
-end
-
-# Set a flag indicating ProxySQL users not defined in the ProxySQL config need
-# to be updated.
-node.run_state['proxysql_update_users'] = false
-ruby_block 'set user update flag' do
-  action :nothing
-  block do
-    node.run_state['proxysql_update_users'] = true
   end
 end
 

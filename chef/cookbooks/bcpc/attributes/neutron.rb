@@ -39,3 +39,9 @@ default['bcpc']['neutron']['quota']['project']['admin']['rbac-policies'] = -1
 # database connection pool settings
 default['bcpc']['neutron']['db']['max_pool_size'] = 64
 default['bcpc']['neutron']['db']['max_overflow'] = 128
+
+# calico plugin configuration
+default['bcpc']['neutron']['calico']['num_port_status_threads'] = nil
+default['bcpc']['neutron']['calico']['etcd_compaction_period_mins'] = nil
+default['bcpc']['neutron']['calico']['etcd_compaction_min_revisions'] = nil
+default['bcpc']['neutron']['calico']['project_name_cache_max'] = nil

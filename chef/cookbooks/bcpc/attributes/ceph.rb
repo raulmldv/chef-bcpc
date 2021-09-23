@@ -64,7 +64,7 @@ default['bcpc']['ceph']['tcmalloc_max_total_thread_cache_bytes'] = '128MB'
 # Set the max open fds at the OS level
 default['bcpc']['ceph']['max_open_files'] = 2048
 
-# Set tunables for ceph osd reovery
+# Set tunables for Ceph OSD recovery
 default['bcpc']['ceph']['paxos_propose_interval'] = 1
 default['bcpc']['ceph']['osd_recovery_max_active'] = 1
 default['bcpc']['ceph']['osd_recovery_threads'] = 2
@@ -77,6 +77,7 @@ default['bcpc']['ceph']['osd_deep_scrub_interval'] = 2592000
 default['bcpc']['ceph']['osd_scrub_max_interval'] = 604800
 default['bcpc']['ceph']['osd_scrub_sleep'] = 0.05
 default['bcpc']['ceph']['osd_memory_target'] = 9663676416
+default['bcpc']['ceph']['mon_osd_down_out_interval'] = 300
 
 # BlueStore tuning
 default['bcpc']['ceph']['bluestore_rocksdb_options'] = [
@@ -106,3 +107,9 @@ default['bcpc']['ceph']['rbd_default_features'] = 33
 default['bcpc']['ceph']['mgr']['enabled'] = true
 default['bcpc']['ceph']['mon']['enabled'] = true
 default['bcpc']['ceph']['osd']['enabled'] = true
+
+# ceph mgr module configuration
+
+# https://tracker.ceph.com/issues/50778
+# Mons may become unstable when the progress module is enabled.
+default['bcpc']['ceph']['module']['progress']['enabled'] = false
