@@ -19,10 +19,10 @@ set -ev
 function main {
     find . -name "*.sh" -exec shellcheck {} \;
     find . -name "*.sh" -exec bashate -e E006 {} \;
-    find . -name "*.py" -exec flake8 {} \;
-    find ansible -name "*.yml" -exec ansible-lint -x 503 {} \;
-    foodcritic chef/cookbooks --tags -FC004
-    cookstyle .
+    find . -name "*.py" \
+         ! -path "./chef/cookbooks/bcpc/files/default/*" -exec flake8 {} \;
+    ansible-lint -x var-naming ansible/
+    cookstyle --version && cookstyle .
 }
 
 main

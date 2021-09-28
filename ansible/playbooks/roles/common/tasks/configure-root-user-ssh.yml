@@ -30,3 +30,4 @@
         StrictHostKeyChecking no
         UserKnownHostsFile=/dev/null
     dest: /root/.ssh/config
+    mode: 0644
