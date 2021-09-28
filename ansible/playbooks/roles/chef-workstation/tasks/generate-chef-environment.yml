@@ -2,6 +2,7 @@
   file:
     path: "{{ item }}"
     state: directory
+    mode: 0775
   with_items:
     - "{{ chef_roles_dir }}"
     - "{{ chef_environments_dir }}"
@@ -12,12 +13,14 @@
   template:
     src: "chef/environment.json.j2"
     dest: "{{ chef_environments_dir }}/{{ chef_environment.name }}.json"
+    mode: 0664
   delegate_to: localhost
 
 - name: generate chef databags
   template:
     src: "chef/databag.json.j2"
     dest: "{{ chef_databags_dir }}/{{ item['id'] }}.json"
+    mode: 0664
   with_items:
     "{{ chef_databags }}"
   delegate_to: localhost
@@ -26,6 +29,7 @@
   template:
     src: "chef/role.json.j2"
     dest: "{{ chef_roles_dir }}/{{ item.name }}.json"
+    mode: 0664
   with_items:
     "{{ chef_roles }}"
   delegate_to: localhost

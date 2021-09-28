@@ -28,24 +28,27 @@
   copy:
     src: files/unbound/default
     dest: /etc/default/unbound
+    mode: 0644
   register: unbound_default_conf
 
 - name: install unbound server config
   template:
     src: unbound/server.conf.j2
     dest: /etc/unbound/unbound.conf.d/server.conf
+    mode: 0644
   register: unbound_conf
 
 - name: restart unbound
   service:
     name: unbound
     state: restarted
-  when: unbound_conf.changed or unbound_default_conf.changed
+  when: unbound_conf.changed or unbound_default_conf.changed  # noqa no-handler
 
 - name: install /etc/resolv.conf
   template:
     src: etc/resolv.conf.j2
     dest: /etc/resolv.conf
+    mode: 0644
 
 ###############################################################################
 # configure systemd-resolved
@@ -65,3 +68,4 @@
   copy:
     src: files/systemd/resolved.conf
     dest: /etc/systemd/resolved.conf
+    mode: 0644

@@ -4,6 +4,7 @@
   template:
     src: bird/apt-preferences.j2
     dest: /etc/apt/preferences.d/98bird
+    mode: 0644
 
 - name: install bird
   apt:
@@ -15,6 +16,7 @@
     state: directory
     group: bird
     owner: bird
+    mode: 0755
 
 - name: create bird.log with correct permission
   file:
@@ -22,23 +24,26 @@
     state: touch
     group: bird
     owner: bird
+    mode: 0644
 
 - name: configure bird
   template:
     src: bird/bird.conf.j2
     dest: /etc/bird/bird.conf
+    mode: 0640
   register: bird_conf
 
 - name: reload bird
   service:
     name: bird
     state: reloaded
-  when: bird_conf.changed
+  when: bird_conf.changed  # noqa no-handler
 
 - name: deploy bird logrotate config file
   template:
     src: bird/bird.logrotate
     dest: /etc/logrotate.d/bird
+    mode: 0644
 
 - name: check for default gateway from tor
   shell: |

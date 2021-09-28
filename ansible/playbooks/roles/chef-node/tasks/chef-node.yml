@@ -2,6 +2,7 @@
   copy:
     src: "{{ assets_download_dir }}/{{ chef_client_package.filename }}"
     dest: "/var/tmp/{{ chef_client_package.filename }}"
+    mode: 0644
 
 - name: install chef-client package
   apt:
@@ -23,6 +24,7 @@
   copy:
     dest: "{{ chef_org_validator_pem }}"
     content: "{{ chef_validation_key['content'] | b64decode }}"
+    mode: 0644
 
 - name: create trusted certs directory
   file:
@@ -43,6 +45,7 @@
   copy:
     dest: '{{ dest }}'
     content: "{{ chef_server_ssl_crt['content'] | b64decode }}"
+    mode: 0644
   vars:
     filename: '{{ chef_server_fqdn | replace(".", "_") }}.crt'
     dest: '/etc/chef/trusted_certs/{{ filename }}'
@@ -57,6 +60,7 @@
   template:
     src: client.rb.j2
     dest: /etc/chef/client.rb
+    mode: 0644
 
 - name: check if registered
   become: false
@@ -124,6 +128,7 @@
   copy:
     content: "{{ node_details | to_nice_json }}"
     dest: "{{ node_fqdn }}.json"
+    mode: 0644
   delegate_to: "{{ chef_server_host }}"
   no_log: true
 

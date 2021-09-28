@@ -71,7 +71,7 @@
 
 - name: Run update-grub
   command: update-grub
-  when: grub_defaults.changed
+  when: grub_defaults.changed  # noqa no-handler
 
 # Ensure elevator changes are effective
 - name: Gather a list of hardware/block devices
@@ -106,7 +106,7 @@
 
 - name: Reload sysctl settings
   command: sysctl -p /etc/sysctl.d/70-bcpc.conf
-  when: sysctl_bcpc.changed
+  when: sysctl_bcpc.changed  # noqa no-handler
 
 # Configure block device readahead
 - name: Configure block device readahead
@@ -120,11 +120,11 @@
 
 - name: Reload udevadm rules
   command: udevadm control --reload-rules
-  when: udev_readahead.changed
+  when: udev_readahead.changed  # noqa no-handler
 
 - name: Replay udev events
   command: udevadm trigger
-  when: udev_readahead.changed
+  when: udev_readahead.changed  # noqa no-handler
 
 # Configure /etc/updatedb.conf
 - name: Configure /etc/updatedb.conf
@@ -147,7 +147,7 @@
     - lxd
     - rpcbind
     - snapd
-  ignore_errors: yes
+  ignore_errors: yes  # noqa ignore-errors
 
 # Purge some Ubuntu packages
 - name: Purge undesirable packages
