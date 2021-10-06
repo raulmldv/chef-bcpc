@@ -26,17 +26,3 @@ package %w(
   ceph
   ceph-deploy
 )
-
-# workaround python3.8 deprecation of platform.linux_distribution.
-# ceph-deploy has not been rewired to workaround this, so we do it here.
-package 'python3-distro'
-
-cookbook_file '/usr/lib/python3/dist-packages/ceph_deploy/hosts/remotes.py' do
-  source 'ceph/remotes.py'
-  notifies :run, 'execute[py3compile-ceph-deploy]', :immediately
-end
-
-execute 'py3compile-ceph-deploy' do
-  action :nothing
-  command 'py3compile -p ceph-deploy'
-end
