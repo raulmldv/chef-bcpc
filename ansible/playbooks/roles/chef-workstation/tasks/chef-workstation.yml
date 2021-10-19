@@ -2,6 +2,7 @@
   copy:
     src: "{{ assets_download_dir }}/{{ chef_client_package.filename }}"
     dest: "/var/tmp/{{ chef_client_package.filename }}"
+    mode: 0644
 
 - name: install chef-client
   apt:
@@ -25,6 +26,7 @@
   copy:
     dest: /etc/chef/validator.pem
     content: "{{ chef_validation_key['content'] | b64decode }}"
+    mode: 0644
 
 - name: get contents of chef client key
   slurp:
@@ -37,6 +39,7 @@
   copy:
     dest: "{{ chef_admin_client_key }}"
     content: "{{ chef_client_key['content'] | b64decode }}"
+    mode: 0600
 
 - name: create .chef/knife.rb
   become: false

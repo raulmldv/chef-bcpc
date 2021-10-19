@@ -2,6 +2,7 @@
   copy:
     src: "{{ assets_download_dir }}/{{ chef_server_package.filename }}"
     dest: "/var/tmp/{{ chef_server_package.filename }}"
+    mode: 0644
 
 - name: install chef-server install package
   apt:

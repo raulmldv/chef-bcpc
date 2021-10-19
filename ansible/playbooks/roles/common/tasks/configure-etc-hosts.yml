@@ -6,3 +6,4 @@
   template:
     src: etc/hosts.j2
     dest: /etc/hosts
+    mode: 0644

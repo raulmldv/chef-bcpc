@@ -6,12 +6,14 @@
   template:
     src: chrony/chrony.conf.j2
     dest: /etc/chrony/chrony.conf
+    mode: 0644
   register: chrony
 
 - name: configure chrony defaults
   template:
     src: chrony/default.j2
     dest: /etc/default/chrony
+    mode: 0644
   register: chrony_defaults
 
 - name: create systemd dependency work-around directory for chrony
@@ -28,6 +30,7 @@
       After=network.target network-online.target
       Wants=network-online.target
     dest: /etc/systemd/system/chrony.service.d/custom.conf
+    mode: 0644
   register: chrony_custom
 
 - name: reload chrony
@@ -35,10 +38,10 @@
     name: chrony
     daemon_reload: yes
     enabled: yes
-  when: chrony_custom.changed
+  when: chrony_custom.changed  # noqa no-handler
 
 - name: restart chrony
   systemd:
     name: chrony
     state: restarted
-  when: chrony.changed or chrony_defaults.changed
+  when: chrony.changed or chrony_defaults.changed  # noqa no-handler

@@ -29,9 +29,10 @@
   template:
     src: apt/sources.list.j2
     dest: /etc/apt/sources.list
+    mode: 0644
   register: sources_list
 
 - name: apt-get update
   apt:
     update_cache: yes
-  when: sources_list.changed
+  when: sources_list.changed  # noqa no-handler

@@ -16,6 +16,7 @@
   template:
     src: netplan/virtualbox.yaml.j2
     dest: "/etc/netplan/virtualbox.yaml"
+    mode: 0644
   register: netplan
   when: ansible_virtualization_type == 'virtualbox'
 
@@ -23,6 +24,7 @@
   template:
     src: netplan/libvirt.yaml.j2
     dest: "/etc/netplan/libvirt.yaml"
+    mode: 0644
   register: netplan
   when: libvirt_kvm_guest
 
@@ -30,10 +32,11 @@
   template:
     src: netplan/transit.yaml.j2
     dest: "/etc/netplan/{{ item['name'] }}.yaml"
+    mode: 0644
   with_items:
     "{{ interfaces['transit'] | transit_interfaces(ansible_facts) }}"
   register: netplan
 
 - name: netplan apply
   command: netplan apply
-  when: netplan.changed
+  when: netplan.changed  # noqa no-handler

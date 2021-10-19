@@ -6,8 +6,8 @@ function main {
 
 function install_linters_linux {
     sudo apt-get install -y shellcheck
-    sudo pip install bashate flake8 ansible-lint
-    sudo gem install foodcritic cookstyle
+    sudo pip install bashate flake8 ansible-core==2.11.5 ansible-lint==5.2.0
+    sudo gem install cookstyle
 }
 
 main
