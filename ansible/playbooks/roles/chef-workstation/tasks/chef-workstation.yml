@@ -39,7 +39,7 @@
   copy:
     dest: "{{ chef_admin_client_key }}"
     content: "{{ chef_client_key['content'] | b64decode }}"
-    mode: 0600
+    mode: 0644
 
 - name: create .chef/knife.rb
   become: false
