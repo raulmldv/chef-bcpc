@@ -16,4 +16,4 @@
   service:
     name: systemd-networkd
     state: restarted
-  when: networkd.changed
+  when: networkd.changed  # noqa no-handler

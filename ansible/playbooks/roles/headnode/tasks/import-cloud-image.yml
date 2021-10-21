@@ -15,6 +15,7 @@
   copy:
     src: "{{ assets_download_dir }}/{{ file_asset.filename }}"
     dest: "/var/tmp/"
+    mode: 0644
   when: image_check is failed
 
 - name: "import {{ item.file_asset }} cloud image"
