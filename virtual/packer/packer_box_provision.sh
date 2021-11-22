@@ -26,7 +26,19 @@ apt_key_url="${BCC_APT_KEY_URL}"
 apt_url="${BCC_APT_URL}"
 kernel_version="${BCC_KERNEL_VERSION}"
 
+function configure_backports {
+    machine=`uname -i`
+    if [[ "$machine" = "aarch64" ]]; then
+	backports=""
+	backportsflag=""
+    else
+	backports="bionic-backports main restricted universe multiverse"
+	backportsflag="-t bionic-backports"
+    fi
+}
+
 function main {
+    configure_backports
     configure_apt
     upgrade_system
     configure_linux_kernel
@@ -43,7 +55,7 @@ function configure_apt {
     if [ -n "$apt_url" ]; then
 cat << EOF > /etc/apt/sources.list
 deb ${apt_url} bionic main restricted universe multiverse
-deb ${apt_url} bionic-backports main restricted universe multiverse
+deb ${apt_url} ${backports}
 deb ${apt_url} bionic-security main restricted universe multiverse
 deb ${apt_url} bionic-updates main restricted universe multiverse
 EOF
@@ -116,7 +128,7 @@ function cleanup_image {
 function download_debs {
     # Resynchronize package index files after above cleanup
     apt-get update
-    apt-get install --download-only -y -t bionic-backports \
+    apt-get install --download-only -y ${backportsflag} \
         bird2 init-system-helpers
     apt-get install --download-only -y chrony tinyproxy unbound
 }
