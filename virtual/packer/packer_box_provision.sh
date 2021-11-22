@@ -29,11 +29,11 @@ kernel_version="${BCC_KERNEL_VERSION}"
 function configure_backports {
     machine=$(uname -i)
     if [[ "$machine" = "aarch64" ]]; then
-	backports=""
-	backportsflag=""
+        backports=""
+        backportsflag=""
     else
-	backports="bionic-backports main restricted universe multiverse"
-	backportsflag="-t bionic-backports"
+        backports="bionic-backports main restricted universe multiverse"
+        backportsflag="-t bionic-backports"
     fi
 }
 
