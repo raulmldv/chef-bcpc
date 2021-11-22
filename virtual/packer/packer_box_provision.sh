@@ -27,7 +27,7 @@ apt_url="${BCC_APT_URL}"
 kernel_version="${BCC_KERNEL_VERSION}"
 
 function configure_backports {
-    machine=`uname -i`
+    machine=$(uname -i)
     if [[ "$machine" = "aarch64" ]]; then
 	backports=""
 	backportsflag=""
@@ -128,7 +128,7 @@ function cleanup_image {
 function download_debs {
     # Resynchronize package index files after above cleanup
     apt-get update
-    apt-get install --download-only -y ${backportsflag} \
+    apt-get install --download-only -y "${backportsflag}" \
         bird2 init-system-helpers
     apt-get install --download-only -y chrony tinyproxy unbound
 }

@@ -5,5 +5,5 @@
   "base_box": "jeffnoxon/ubuntu-20.04-arm64",
   "base_box_version": "1.0.0",
   "base_box_provider": "parallels",
-  "output_packer_box_name": "bcc-ubuntu-18.04"
+  "output_packer_box_name": "bcc-ubuntu-20.04"
 }
