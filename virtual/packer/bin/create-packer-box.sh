@@ -16,6 +16,15 @@
 
 set -xe
 
+function vagrant_box_add {
+    box="$1"
+    version="$2"
+    vagrant box add \
+            --force \
+            --insecure "${box}" \
+            --box-version "${version}" \
+            --provider "${BASE_BOX_PROVIDER}"
+}
 
 packer_dir=$(dirname "$(dirname "$0")")
 
@@ -37,11 +46,7 @@ base_box_exists=$(
     || true
 )
 if [ -z "$base_box_exists" ]; then
-    vagrant box add \
-        --force \
-        --insecure "$BASE_BOX" \
-        --box-version "$BASE_BOX_VERSION" \
-        --provider virtualbox;
+    vagrant_box_add "$BASE_BOX" "$BASE_BOX_VERSION"
     if [ "$BASE_BOX_PROVIDER" == "libvirt" ]; then
         printf "Checking for vagrant mutate"
         mutate=$(vagrant plugin list | grep mutate)
