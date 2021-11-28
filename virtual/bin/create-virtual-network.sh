@@ -23,6 +23,8 @@ network_dir="${virtual_dir}/network"
 
 if [ "${VAGRANT_DEFAULT_PROVIDER}" == "libvirt" ] ; then
     export VAGRANT_VAGRANTFILE=Vagrantfile.libvirt
+elif [ "${VAGRANT_DEFAULT_PROVIDER}" == "parallels" ] ; then
+    export VAGRANT_VAGRANTFILE=Vagrantfile.parallels
 fi
 
 # bring up network nodes

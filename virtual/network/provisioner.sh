@@ -42,7 +42,7 @@ switch_config() {
 }
 
 base_config() {
-    for s in rpcbind lxcfs snapd lxd iscsid; do
+    for s in iscsid; do
         sudo systemctl stop ${s}
         sudo systemctl disable ${s}
     done
