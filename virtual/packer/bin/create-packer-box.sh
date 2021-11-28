@@ -17,6 +17,14 @@
 set -xe
 
 function vagrant_box_add {
+    if [ "$BASE_BOX_PROVIDER" == "parallels" ]; then
+        printf "Checking for vagrant parallels plugins"
+        parallels=$(vagrant plugin list | grep parallels || true)
+        if [ -z "$parallels" ]; then
+	    printf "Please install vagrant parallels plugin\n"
+	    exit 1
+	fi
+    fi
     box="$1"
     version="$2"
     vagrant box add \
