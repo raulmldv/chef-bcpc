@@ -115,8 +115,8 @@ To create a libvirt build:
 ```shell
 sudo apt-get install build-essential dnsmasq libguestfs-tools libvirt-dev pkg-config qemu-utils
 vagrant plugin install vagrant-libvirt vagrant-mutate
-vagrant box add bento/ubuntu-18.04 --box-version 202005.21.0 --provider virtualbox
-vagrant mutate bento/ubuntu-18.04 libvirt
+vagrant box add bento/ubuntu-20.04 --box-version 202206.03.0 --provider virtualbox
+vagrant mutate bento/ubuntu-20.04 libvirt
 export VAGRANT_DEFAULT_PROVIDER=libvirt VAGRANT_VAGRANTFILE=Vagrantfile.libvirt
 make generate-chef-databags
 make create-packer-box
@@ -156,7 +156,7 @@ variables).
 This would look something like this:
 
 ```shell
-$ rm -rf ~/.vagrant.d/boxes/bento-VAGRANTSLASH-ubuntu-18.04/202005.21.0/libvirt/
+$ rm -rf ~/.vagrant.d/boxes/bento-VAGRANTSLASH-ubuntu-20.04/202206.03.0/libvirt/
 $ sudo reboot
 ```
 
