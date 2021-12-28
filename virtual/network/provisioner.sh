@@ -27,14 +27,17 @@ on_edge() {
 
 switch_config() {
     # enable IPv4 forwarding
-    sudo sed -i 's/#\(net.ipv4.ip_forward\)/\1/g' /etc/sysctl.d/99-sysctl.conf
-    sudo sysctl -q -p /etc/sysctl.d/99-sysctl.conf
+    echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/90-bcpc.conf
+    sysctl -qp /etc/sysctl.d/90-bcpc.conf
 
     if on_edge "${1}"; then
         # add masquerading source NAT rule on spines or super spines
         sudo iptables -A POSTROUTING -j MASQUERADE -o eth0 -t nat
-        sudo iptables-save | sudo tee /etc/iptables/rules.v4
     fi
+
+    # prevent a netfilter warning about IPv6 and flush the current policy to disk
+    sed -i '/^#[[:space:]]*IP6TABLES_SKIP_SAVE=/c\IP6TABLES_SKIP_SAVE=yes' /etc/default/netfilter-persistent
+    netfilter-persistent save
 
     # configure BIRD
     sudo cp "/vagrant/bird/${1}.conf" /etc/bird/bird.conf
@@ -42,7 +45,7 @@ switch_config() {
 }
 
 base_config() {
-    for s in rpcbind lxcfs snapd lxd iscsid; do
+    for s in multipathd.socket multipathd snapd.socket snapd snapd.seeded udisks2; do
         sudo systemctl stop ${s}
         sudo systemctl disable ${s}
     done
@@ -67,16 +70,11 @@ systemd_configuration() {
     done | sudo tee /etc/resolv.conf
 }
 
-apt_configuration() {
-    # ref: ansible/playbooks/roles/common/tasks/configure-bgp.yml
-    sudo cp "/vagrant/apt-preferences" /etc/apt/preferences.d/98-bird
-}
-
 package_installation() {
     dpkg --remove-architecture i386
-    apt="sudo DEBIAN_FRONTEND=noninteractive apt-get -y"
+    apt="sudo DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -y"
     ${apt} update
-    ${apt} install lldpd traceroute bird2 iptables-persistent
+    ${apt} install bird2 lldpd iptables-persistent traceroute
 }
 
 opts=$(getopt E "$@")
@@ -96,7 +94,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-apt_configuration
 package_installation
 base_config "${1}"
 switch_config "${1}"
