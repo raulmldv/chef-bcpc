@@ -1,7 +1,7 @@
 # Cookbook:: bcpc
 # Recipe:: rabbitmq
 #
-# Copyright:: 2020 Bloomberg Finance L.P.
+# Copyright:: 2021 Bloomberg Finance L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,14 +20,6 @@ apt_repository 'rabbitmq' do
   components ['main']
   key 'rabbitmq/rabbitmq.key'
   only_if { node['bcpc']['rabbitmq']['source']['repo']['enabled'] }
-end
-
-template '/etc/apt/preferences.d/99rabbitmq' do
-  source 'rabbitmq/apt-preferences.erb'
-  variables(
-    release: node['bcpc']['rabbitmq']['source']['distribution']['name']
-  )
-  only_if { node['bcpc']['rabbitmq']['source']['distribution']['enabled'] }
 end
 
 region = node['bcpc']['cloud']['region']
