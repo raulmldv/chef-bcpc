@@ -272,7 +272,7 @@ grub_cmdline_linux: []
 ###############################################################################
 
 # Select desired I/O scheduler to be applied at startup (deadline, noop, cfq)
-hardware_io_scheduler: deadline
+hardware_io_scheduler: mq-deadline
 
 # Select kernel NVMe multipath support.
 # Disabling addresses the issue with controller vs. disk/device naming issues,
