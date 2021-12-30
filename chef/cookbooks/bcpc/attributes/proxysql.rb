@@ -8,7 +8,7 @@ default['bcpc']['proxysql']['enabled'] = false
 # Repository
 default['bcpc']['proxysql']['repo']['enabled'] = true
 default['bcpc']['proxysql']['repo']['url'] =
- 'https://repo.proxysql.com/ProxySQL/proxysql-2.2.x/bionic/'
+ 'https://repo.proxysql.com/ProxySQL/proxysql-2.2.x/focal/'
 default['bcpc']['proxysql']['repo']['key'] = 'proxysql/release.key'
 default['bcpc']['proxysql']['repo']['distribution'] = './'
 default['bcpc']['proxysql']['repo']['components'] = []
