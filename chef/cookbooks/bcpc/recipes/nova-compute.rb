@@ -245,13 +245,6 @@ template '/etc/nova/nova-compute.conf' do
   notifies :restart, 'service[nova-compute]', :immediately
 end
 
-# install patched vif.py for libvirt
-# https://bugs.launchpad.net/nova/+bug/1939604
-cookbook_file '/usr/lib/python3/dist-packages/nova/virt/libvirt/vif.py' do
-  source 'nova/vif.py'
-  notifies :restart, 'service[nova-compute]', :immediately
-end
-
 execute 'wait for compute host' do
   environment os_adminrc
   retries 15
