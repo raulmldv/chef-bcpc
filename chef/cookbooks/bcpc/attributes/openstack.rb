@@ -2,7 +2,7 @@
 # openstack
 ###############################################################################
 
-default['bcpc']['openstack']['repo']['enabled'] = true
+default['bcpc']['openstack']['repo']['enabled'] = false
 default['bcpc']['openstack']['repo']['url'] = 'http://ubuntu-cloud.archive.canonical.com/ubuntu'
 
 default['bcpc']['openstack']['repo']['release'] = 'ussuri'
