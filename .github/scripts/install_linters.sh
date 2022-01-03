@@ -17,7 +17,7 @@ function install_linters_linux {
     for pkg in bashate flake8 ansible-lint==5.2.1; do
         pipx install --force "${pkg}"
     done
-    pipx inject ansible-lint ansible-core==2.11.6
+    pipx inject ansible-lint ansible==5.1.0
     sudo gem install cookstyle
 }
 
