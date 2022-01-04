@@ -17,4 +17,4 @@ default['bcpc']['glance']['os']['username'] = 'glance'
 # ceph (rbd)
 default['bcpc']['glance']['ceph']['user'] = 'glance'
 default['bcpc']['glance']['ceph']['pool']['name'] = 'images'
-default['bcpc']['glance']['ceph']['pool']['size'] = 1
+default['bcpc']['glance']['ceph']['pool']['size'] = 3
