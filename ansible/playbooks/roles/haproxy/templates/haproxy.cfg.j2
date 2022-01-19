@@ -1,0 +1,84 @@
+global
+  daemon
+  user haproxy
+  group haproxy
+  pidfile /var/run/haproxy.pid
+  stats socket /var/run/haproxy/haproxy.asok user root group haproxy mode 775 level admin
+  log /dev/log local0 info alert
+  maxconn 8000
+
+defaults
+  log global
+  mode http
+  option http-server-close
+  option abortonclose
+  option tcplog
+  option dontlognull
+  option redispatch
+  retries 3
+{% if haproxy_qos_enabled %}
+  timeout http-request {{ haproxy_qos_http_request_timeout }}
+{% else %}
+  timeout http-request 10s
+{% endif %}
+  timeout queue 1m
+  timeout connect 5s
+  timeout check 10s
+  timeout client 30m
+  timeout server 30m
+
+frontend http
+  bind {{ cloud_ip }}:80
+  option httplog
+  default_backend http-backend
+
+frontend https
+  bind {{ cloud_ip }}:443 ssl crt /etc/haproxy/haproxy.pem
+  option httplog
+  stats enable
+  stats uri /haproxy
+  stats hide-version
+  stats realm Haproxy\ Statistics
+  stats auth {{ haproxy_creds['username'] }}:{{ haproxy_creds['password'] }}
+  reqadd X-Forwarded-Proto:\ https
+  acl url_horizon path_beg /horizon
+  use_backend horizon-backend if url_horizon
+  acl url_horizon_static path_beg /static
+  use_backend horizon-backend if url_horizon_static
+  acl url_rabbitmq path_beg /rabbitmq
+  use_backend rabbitmq-web-backend if url_rabbitmq
+  default_backend http-backend
+
+backend http-backend
+  balance source
+  option httpchk GET /
+  http-check expect status 200
+{% for host in groups['headnodes'] %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:80 check inter 5s rise 1 fall 1
+{% endfor %}
+
+backend horizon-backend
+  balance source
+  option httpchk GET /
+  option forwardfor
+  http-check expect status 200
+{% for host in groups['headnodes'] %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:9999 check inter 5s rise 1 fall 1
+{% endfor %}
+
+backend rabbitmq-web-backend
+  balance source
+  option httpchk GET /
+  http-check expect status 200
+  reqrep ^([^\ :]*)\ /rabbitmq/(.*) \1\ /\2
+{% for host in groups['cloud'] | hosts_chef_role(hostvars,'rmqnode') %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:55672 check inter 5s rise 1 fall 1
+{% endfor %}
+
+peers headnodes
+{% for host in groups['headnodes'] %}
+  peer {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:32768
+{% endfor %}
+
+backend stick-table-qos
+  stick-table type ip size {{ haproxy_qos_max_entries }} expire {{ haproxy_qos_entry_expiration }} peers headnodes store conn_cur,conn_rate({{ haproxy_qos_conn_rate_period }}),http_req_rate({{ haproxy_qos_http_req_rate_period }}),http_err_rate({{ haproxy_qos_http_err_rate_period }})

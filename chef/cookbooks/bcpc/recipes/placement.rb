@@ -124,25 +124,11 @@ end
 #
 # placement openstack access ends
 
-# install haproxy fragment
-template '/etc/haproxy/haproxy.d/placement.cfg' do
-  source 'placement/haproxy.cfg.erb'
-  variables(
-    headnodes: headnodes(all: true),
-    vip: node['bcpc']['cloud']['vip']
-  )
-  notifies :reload, 'service[haproxy-placement]', :immediately
-end
-
 # placement package installation and service definition
 package 'placement-api'
 
 service 'placement-api' do
   service_name 'apache2'
-end
-
-service 'haproxy-placement' do
-  service_name 'haproxy'
 end
 
 # create policy.d dir for policy overrides

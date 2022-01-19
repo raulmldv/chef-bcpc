@@ -22,6 +22,7 @@ all : \
 	configure-chef-nodes \
 	configure-web-server \
 	configure-common-node \
+	run-configure-haproxy \
 	run-chef-client \
 	reweight-ceph-osds \
 	add-cloud-images \
@@ -103,6 +104,71 @@ configure-common-node :
 	ansible-playbook -v \
 		-i ${inventory} ${playbooks}/configure-common-node.yml \
 		--limit cloud
+
+run-configure-haproxy : \
+	configure-haproxy \
+	configure-keystone-haproxy \
+	configure-glance-haproxy \
+	configure-neutron-haproxy \
+	configure-placement-haproxy \
+	configure-nova-haproxy \
+	configure-cinder-haproxy \
+	configure-heat-haproxy \
+	configure-watcher-haproxy
+
+configure-haproxy :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-haproxy -f 1 --limit headnodes
+
+configure-keystone-haproxy :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-keystone-haproxy -f 1 --limit headnodes
+
+configure-glance-haproxy :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-glance-haproxy -f 1 --limit headnodes
+
+configure-neutron-haproxy :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-neutron-haproxy -f 1 --limit headnodes
+
+configure-placement-haproxy :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-placement-haproxy -f 1 --limit headnodes
+
+configure-nova-haproxy :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-nova-haproxy -f 1 --limit headnodes
+
+configure-cinder-haproxy :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-cinder-haproxy -f 1 --limit headnodes
+
+configure-heat-haproxy :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-heat-haproxy -f 1 --limit headnodes
+
+configure-watcher-haproxy :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-watcher-haproxy -f 1 --limit headnodes
 
 run-chef-client : \
 	run-chef-client-bootstraps \

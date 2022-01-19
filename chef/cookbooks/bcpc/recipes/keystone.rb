@@ -32,16 +32,6 @@ database = {
   'password' => config['keystone']['db']['password'],
 }
 
-# install haproxy fragment
-template '/etc/haproxy/haproxy.d/keystone.cfg' do
-  source 'keystone/haproxy.cfg.erb'
-  variables(
-    headnodes: headnodes(all: true),
-    vip: node['bcpc']['cloud']['vip']
-  )
-  notifies :reload, 'service[haproxy-keystone]', :immediately
-end
-
 # package installation and service definition starts
 package %w(
   keystone
@@ -51,10 +41,6 @@ package %w(
 
 service 'keystone' do
   service_name 'apache2'
-end
-
-service 'haproxy-keystone' do
-  service_name 'haproxy'
 end
 
 # fernet key installation starts

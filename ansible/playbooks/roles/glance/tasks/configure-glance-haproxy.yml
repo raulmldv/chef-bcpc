@@ -1,0 +1,9 @@
+- name: template glance haproxy config
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  with_items: "{{ glance_config_files }}"
+  notify: "{{ item.notification }}"
