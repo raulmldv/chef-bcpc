@@ -23,6 +23,7 @@ all : \
 	configure-web-server \
 	configure-common-node \
 	run-configure-haproxy \
+	configure-consul-cluster \
 	run-chef-client \
 	reweight-ceph-osds \
 	add-cloud-images \
@@ -169,6 +170,12 @@ configure-watcher-haproxy :
 	ansible-playbook -v \
 		-i ${inventory} ${playbooks}/site.yml \
 		-t configure-watcher-haproxy -f 1 --limit headnodes
+
+configure-consul-cluster :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-consul --limit headnodes
 
 run-chef-client : \
 	run-chef-client-bootstraps \
