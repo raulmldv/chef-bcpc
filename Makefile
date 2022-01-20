@@ -7,6 +7,7 @@ export ANSIBLE_CONFIG = ansible/ansible.cfg
 
 headnodes = $$(ansible headnodes -i ${inventory} --list | tail -n +2 | wc -l)
 rmqnodes = $$(ansible rmqnodes -i ${inventory} --list | tail -n +2 | wc -l)
+mysqlnodes = $$(ansible mysqlnodes -i ${inventory} --list | tail -n +2 | wc -l)
 storagenodes = \
 	$$(ansible storagenodes -i ${inventory} --list | tail -n +2 | wc -l)
 storageheadnodes = \
@@ -107,6 +108,7 @@ configure-common-node :
 run-chef-client : \
 	run-chef-client-bootstraps \
 	run-chef-client-rmqnodes \
+	run-chef-client-mysqlnodes \
 	run-chef-client-storageheadnodes \
 	run-chef-client-headnodes \
 	run-chef-client-worknodes \
@@ -131,6 +133,22 @@ run-chef-client-rmqnodes :
 			ansible-playbook -v \
 				-i ${inventory} ${playbooks}/site.yml \
 				-t chef-client --limit rmqnodes \
+				-e "step=1"; \
+		fi \
+	fi
+
+run-chef-client-mysqlnodes :
+
+	@if [ "${mysqlnodes}" -gt 0 ]; then \
+		ansible-playbook -v \
+			-i ${inventory} ${playbooks}/site.yml \
+			-t chef-client --limit mysqlnodes \
+			-e "step=1"; \
+		\
+		if [ "${mysqlnodes}" -gt 1 ]; then \
+			ansible-playbook -v \
+				-i ${inventory} ${playbooks}/site.yml \
+				-t chef-client --limit mysqlnodes \
 				-e "step=1"; \
 		fi \
 	fi
