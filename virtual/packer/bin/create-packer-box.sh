@@ -20,7 +20,7 @@ set -xe
 packer_dir=$(dirname "$(dirname "$0")")
 
 # Check if an official base box is added to vagrant
-config_variables="${packer_dir}/variables.json"
+config_variables="${packer_dir}/config/variables.json"
 BASE_BOX=$(jq -r '.base_box' "$config_variables")
 BASE_BOX_VERSION=$(jq -r '.base_box_version' "$config_variables")
 BASE_BOX_PROVIDER=$(jq -r '.base_box_provider' "$config_variables")
@@ -82,8 +82,8 @@ if [ "$lower_packer_ver" = "$required_packer_ver" ]; then
     VAGRANT_VAGRANTFILE=Vagrantfile packer build \
                         --force \
                         --on-error=abort \
-                        --var-file=variables.json \
-                        "config.json"
+                        --var-file="config/variables.json" \
+                        "config/config.json"
     cd "output-vagrant"
     VAGRANT_VAGRANTFILE=Vagrantfile vagrant box add \
                         --force \
