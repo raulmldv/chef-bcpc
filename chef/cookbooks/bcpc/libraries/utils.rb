@@ -32,6 +32,12 @@ def init_rmq?
   nodes.empty?
 end
 
+def init_mysql?
+  nodes = search(:node, 'roles:mysqlnode')
+  nodes = nodes.reject { |n| n['hostname'] == node['hostname'] }
+  nodes.empty?
+end
+
 def init_storage?
   nodes = search(:node, 'roles:storageheadnode')
   nodes = nodes.reject { |n| n['hostname'] == node['hostname'] }
@@ -48,6 +54,10 @@ end
 
 def rmqnode?
   search(:node, "role:rmqnode AND hostname:#{node['hostname']}").any?
+end
+
+def mysqlnode?
+  search(:node, "role:mysqlnode AND hostname:#{node['hostname']}").any?
 end
 
 def storagenode?
@@ -96,6 +106,21 @@ def rmqnodes(exclude: nil, all: false)
     nodes = search(:node, 'role:rmqnode')
   else
     nodes = search(:node, 'roles:rmqnode')
+  end
+
+  nodes.sort! { |a, b| a['hostname'] <=> b['hostname'] }
+end
+
+def mysqlnodes(exclude: nil, all: false)
+  nodes = []
+
+  if !exclude.nil?
+    nodes = search(:node, 'roles:mysqlnode')
+    nodes = nodes.reject { |h| h['hostname'] == exclude }
+  elsif all == true
+    nodes = search(:node, 'role:mysqlnode')
+  else
+    nodes = search(:node, 'roles:mysqlnode')
   end
 
   nodes.sort! { |a, b| a['hostname'] <=> b['hostname'] }

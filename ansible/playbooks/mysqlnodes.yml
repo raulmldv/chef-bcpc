@@ -1,0 +1,8 @@
+- hosts: mysqlnodes
+  gather_facts: no
+  serial: "{{ step | default(ansible_play_batch | length) }}"
+  roles:
+    - common
+    - consul
+    - chef-node
+    - haproxy
