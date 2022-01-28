@@ -5,6 +5,7 @@
     - chef-node
     - cinder
     - common
+    - consul
     - glance
     - haproxy
     - headnode
