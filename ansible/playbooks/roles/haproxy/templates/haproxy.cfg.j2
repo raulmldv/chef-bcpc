@@ -82,6 +82,9 @@ peers headnodes
 {% for host in groups['headnodes'] %}
   peer {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:32768
 {% endfor %}
+{% for host in groups['mysqlnodes'] %}
+  peer {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:32768
+{% endfor %}
 
 backend stick-table-qos
   stick-table type ip size {{ haproxy_qos_max_entries }} expire {{ haproxy_qos_entry_expiration }} peers headnodes store conn_cur,conn_rate({{ haproxy_qos_conn_rate_period }}),http_req_rate({{ haproxy_qos_http_req_rate_period }}),http_err_rate({{ haproxy_qos_http_err_rate_period }})
