@@ -4,8 +4,12 @@
 
 - import_tasks: install-consul.yml
   become: true
-  tags: [never,configure-consul]
+  tags: [never,configure-consul, configure-consul-agent]
+
+- import_tasks: configure-consul.yml
+  become: true
+  tags: [never,configure-consul, configure-consul-agent]
 
 - import_tasks: check-consul-leader.yml
   become: true
-  tags: [never,configure-consul]
+  tags: [never,configure-consul, configure-consul-agent]
