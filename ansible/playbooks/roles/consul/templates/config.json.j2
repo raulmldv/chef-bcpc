@@ -19,6 +19,6 @@
   ],
   "bootstrap_expect": {{ ansible_play_hosts | length }},
   "retry_join": [
-    {{ groups['headnodes', ''mysqlnodes'] | difference([inventory_hostname]) | map('extract', hostvars, 'interfaces') | map(attribute='service') | map(attribute='ip') | map("to_json") | join(',\n    ') }}
+    {{ groups['headnodes'] | groups['mysqlnodes'] | difference([inventory_hostname]) | map('extract', hostvars, 'interfaces') | map(attribute='service') | map(attribute='ip') | map("to_json") | join(',\n    ') }}
   ]
 }
