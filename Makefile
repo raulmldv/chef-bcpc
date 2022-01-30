@@ -122,7 +122,8 @@ configure-haproxy :
 
 	ansible-playbook -v \
 		-i ${inventory} ${playbooks}/site.yml \
-		-t configure-haproxy -f 1 --limit headnodes \
+		-t configure-haproxy -f 1 --limit headnodes
+
 	@if [ "${mysqlnodes}" -gt 0 ]; then \
 		ansible-playbook -v \
 			-i ${inventory} ${playbooks}/site.yml \
@@ -190,6 +191,20 @@ configure-consul-cluster :
 	ansible-playbook -v \
 		-i ${inventory} ${playbooks}/site.yml \
 		-t configure-consul --limit headnodes
+
+	@if [ "${mysqlnodes}" -gt 0 ]; then \
+		ansible-playbook -v \
+			-i ${inventory} ${playbooks}/site.yml \
+			-t configure-consul-agent --limit mysqlnodes \
+			-e "step=1"; \
+		\
+		if [ "${mysqlnodes}" -gt 1 ]; then \
+			ansible-playbook -v \
+				-i ${inventory} ${playbooks}/site.yml \
+				-t configure-consul-agent --limit mysqlnodes \
+				-e "step=1"; \
+		fi \
+	fi
 
 run-chef-client : \
 	run-chef-client-bootstraps \
