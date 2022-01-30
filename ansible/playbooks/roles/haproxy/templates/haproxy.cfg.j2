@@ -56,6 +56,9 @@ backend http-backend
 {% for host in groups['headnodes'] %}
   server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:80 check inter 5s rise 1 fall 1
 {% endfor %}
+{% for host in groups['mysqlnodes'] %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:80 check inter 5s rise 1 fall 1
+{% endfor %}
 
 backend horizon-backend
   balance source
