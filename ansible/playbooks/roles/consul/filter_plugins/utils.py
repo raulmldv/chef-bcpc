@@ -19,13 +19,14 @@ class FilterModule(object):
             'groups_ips': self.get_groups_hosts_ips
         }
 
-    def get_groups_hosts_ips(self, host_variables, selected_groups, groups):
+    def get_groups_hosts_ips(self, host_variables, selected_groups, groups, hostname):
         """Get hosts of the specified groups.
 
         Parameters:
         host_variables (dict): dict of hostvars
         selected_groups (list): list of groups to get their hosts
         groups (dict): list of groups
+        hostname (string): current hostname
 
         Returns:
         hosts (set): list of hosts of the specified groups
@@ -33,5 +34,6 @@ class FilterModule(object):
         hosts = set()
         for group in selected_groups:
             for host in groups[group]:
-                hosts.add(host_variables[host]['interfaces']['service']['ip'])
+                if host != hostname:
+                    hosts.add(host_variables[host]['interfaces']['service']['ip'])
         return list(hosts)
