@@ -16,10 +16,10 @@ class FilterModule(object):
 
     def filters(self):
         return {
-            'groups_hosts': self.get_groups_hosts
+            'groups_ips': self.get_groups_hosts_ips
         }
 
-    def get_groups_hosts(self, host_variables, selected_groups, groups):
+    def get_groups_hosts_ips(self, host_variables, selected_groups, groups):
         """Get hosts of the specified groups.
 
         Parameters:
