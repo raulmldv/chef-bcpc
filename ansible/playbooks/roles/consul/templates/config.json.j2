@@ -19,6 +19,6 @@
   ],
   "bootstrap_expect": {{ ansible_play_hosts | length }},
   "retry_join": [
-    {{ hostvars | groups_hosts(['headnodes', 'mysqlnodes'], groups) | join(',\n    ') }}
+    {{ hostvars | groups_hosts(['headnodes', 'mysqlnodes'], groups) | map("to_json") | join(',\n    ') }}
   ]
 }
