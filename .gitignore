@@ -14,6 +14,8 @@ chef/environments/
 chef/databags/
 virtual/files/ssh/id_*
 virtual/packer/output-vagrant/*
-virtual/packer/variables.json
+virtual/packer/config/variables.json
+virtual/packer/download/*
+virtual/packer/config/s3.json
 hardware.overrides.yml
 topology.overrides.yml
