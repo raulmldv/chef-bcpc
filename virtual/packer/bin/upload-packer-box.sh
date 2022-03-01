@@ -22,7 +22,6 @@ packer_dir=$(dirname "$(dirname "$0")")
 s3_variables="${packer_dir}/config/s3.json"
 
 S3_CONFIG_FILE=$(jq -r '.s3_config_file' "$s3_variables")
-OUTPUT_PACKER_BOX_NAME=$(jq -r '.output_packer_box_name' "$s3_variables")
 UPLOAD_BUCKET=$(jq -r '.upload_bucket' "$s3_variables")
 UPLOAD_SOURCE_PACKER_BOX=$(jq -r '.upload_source_packer_box' "$s3_variables")
 UPLOAD_TARGET_PACKER_BOX=$(jq -r '.upload_target_packer_box' "$s3_variables")
@@ -36,7 +35,10 @@ fi
 
 #upload base box from s3 storage
 if [ "$S3_CONFIG_FILE" == "null" ]; then
-    s3cmd put --force "${packer_dir}/${UPLOAD_SOURCE_PACKER_BOX}" "${UPLOAD_BUCKET}/${UPLOAD_TARGET_PACKER_BOX}"
+    s3cmd put --force "${packer_dir}/${UPLOAD_SOURCE_PACKER_BOX}" \
+        "${UPLOAD_BUCKET}/${UPLOAD_TARGET_PACKER_BOX}"
 else
-    s3cmd -c "${S3_CONFIG_FILE}" put --force "${packer_dir}/${UPLOAD_SOURCE_PACKER_BOX}" "${UPLOAD_BUCKET}/${UPLOAD_TARGET_PACKER_BOX}"
+    s3cmd -c "${S3_CONFIG_FILE}" put --force \
+        "${packer_dir}/${UPLOAD_SOURCE_PACKER_BOX}" \
+        "${UPLOAD_BUCKET}/${UPLOAD_TARGET_PACKER_BOX}"
 fi
