@@ -17,11 +17,17 @@
 set -ev
 
 function main {
+    # shellcheck disable=SC1091
+    source /tmp/linter_venv/bin/activate
+
     find . -name "*.sh" -exec shellcheck {} \;
     find . -name "*.sh" -exec bashate -e E006 {} \;
     find . -name "*.py" \
-         ! -path "./chef/cookbooks/bcpc/files/default/*" -exec flake8 {} \;
-    ansible-lint -x var-naming -x meta-no-info -x meta-no-tags ansible/
+         ! -path "./chef/cookbooks/bcpc/files/default/*" \
+         -exec flake8 {} \;
+    ansible-lint -x var-naming \
+                 -x meta-no-info \
+                 -x meta-no-tags ansible/
     cookstyle --version && cookstyle .
 }
 
