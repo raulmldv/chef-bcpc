@@ -17,10 +17,9 @@
 set -ev
 
 function main {
-    # shellcheck disable=SC1091
     source /tmp/linter_venv/bin/activate
 
-    find . -name "*.sh" -exec shellcheck {} \;
+    find . -name "*.sh" -exec shellcheck -x {} \;
     find . -name "*.sh" -exec bashate -e E006 {} \;
     find . -name "*.py" \
          ! -path "./chef/cookbooks/bcpc/files/default/*" \
