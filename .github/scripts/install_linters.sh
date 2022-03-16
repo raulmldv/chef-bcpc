@@ -20,7 +20,11 @@ function install_linters_linux {
 
     sudo apt-get install -y shellcheck
     pip install -U setuptools wheel pip
-    pip install --force bashate flake8 ansible-lint ansible
+    pip install -I --force \
+        bashate==2.1.0 \
+        flake8==4.0.1 \
+        ansible-lint==5.4.0 \
+        ansible==5.4.0
 
     sudo gem install cookstyle
 }
