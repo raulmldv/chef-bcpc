@@ -483,7 +483,6 @@ class BCCChefDatabags:
             },
             'mysql': {
                 'users': {
-                    'sst': {'password': self.generate_string()},
                     'root': {'password': self.generate_string()},
                     'check': {'password': self.generate_string()},
                 }
