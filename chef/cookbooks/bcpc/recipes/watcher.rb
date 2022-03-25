@@ -227,7 +227,9 @@ end
 
 execute 'watcher-manage db_sync' do
   action :nothing
-  command "su -s /bin/sh -c 'watcher-db-manage --config-file /etc/watcher/watcher.conf upgrade'"
+  command 'watcher-db-manage --config-file /etc/watcher/watcher.conf upgrade'
+  user 'watcher'
+  group 'watcher'
 end
 
 execute 'wait for watcher api to become available' do

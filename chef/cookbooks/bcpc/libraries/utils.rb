@@ -32,6 +32,12 @@ def init_etcd?
   nodes.empty?
 end
 
+def init_mysql?
+  nodes = search(:node, 'roles:headnode')
+  nodes = nodes.reject { |n| n['hostname'] == node['hostname'] }
+  nodes.empty?
+end
+
 def init_rmq?
   nodes = search(:node, 'roles:rmqnode')
   nodes = nodes.reject { |n| n['hostname'] == node['hostname'] }
