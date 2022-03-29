@@ -38,8 +38,8 @@ rbd_store_ceph_conf = /etc/ceph/ceph.conf
 
 
 [image_format]
-container_formats = bare
-disk_formats = raw
+container_formats = <%= node['bcpc']['glance']['container']['formats'] %>
+disk_formats = = <%= node['bcpc']['glance']['disk']['formats'] %>
 
 
 [keystone_authtoken]

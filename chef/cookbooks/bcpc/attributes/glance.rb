@@ -18,3 +18,7 @@ default['bcpc']['glance']['os']['username'] = 'glance'
 default['bcpc']['glance']['ceph']['user'] = 'glance'
 default['bcpc']['glance']['ceph']['pool']['name'] = 'images'
 default['bcpc']['glance']['ceph']['pool']['size'] = 1
+
+# image format
+default['bcpc']['glance']['container']['formats'] = ['ami','ari','aki','bare','ovf','ova','docker']
+default['bcpc']['glance']['disk']['formats'] = ['ami','ari','aki','vhd','vhdx','vmdk','raw','qcow2','vdi','iso','ploop.root-tar']
