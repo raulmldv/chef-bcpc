@@ -52,6 +52,10 @@ default_log_levels = "<%= node['bcpc']['nova']['default_log_levels'] %>"
 <% end %>
 dhcp_domain = <%= node['bcpc']['cloud']['domain'] %>
 
+<% unless node['bcpc']['nova']['resize_confirm_window'].nil? %>
+resize_confirm_window = <%= node['bcpc']['nova']['resize_confirm_window'] %>
+<% end %>
+
 [api]
 auth_strategy = keystone
 

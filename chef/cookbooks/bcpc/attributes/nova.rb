@@ -118,3 +118,6 @@ default['bcpc']['nova']['db-archive']['cron_minute'] = '0'
 default['bcpc']['nova']['scheduler']['filter']['anti_affinity_availability_zone']['enabled'] = false
 default['bcpc']['nova']['scheduler']['filter']['anti_affinity_availability_zone']['name'] = 'AntiAffinityAvailabilityZoneFilter'
 default['bcpc']['nova']['scheduler']['filter']['anti_affinity_availability_zone']['filterPath'] = 'nova.scheduler.filters.anti_affinity_availability_zone_filter.AntiAffinityAvailabilityZoneFilter'
+
+# (Integer) Automatically confirm resizes after N seconds.
+default['bcpc']['nova']['resize_confirm_window'] = 30
