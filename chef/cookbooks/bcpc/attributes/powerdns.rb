@@ -1,7 +1,7 @@
 ###############################################################################
 # powerdns
 ###############################################################################
-default['bcpc']['powerdns']['enabled'] = true
+default['bcpc']['powerdns']['enabled'] = false
 
 default['bcpc']['powerdns']['db']['dbname'] = 'pdns'
 
