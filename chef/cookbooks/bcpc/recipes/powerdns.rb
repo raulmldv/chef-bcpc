@@ -15,7 +15,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-return unless node['bcpc']['powerdns']['enabled']
+pdns_attr = node['bcpc']['powerdns']
+
+unless pdns_attr['enabled']
+  service 'pdns' do
+    action :stop
+  end
+
+  package %w(
+    pdns-server
+    pdns-backend-mysql
+  ) do
+    action :purge
+  end
+
+  file '/usr/local/sbin/catalog-zone-manage' do
+    action :delete
+  end
+
+  directory '/usr/local/lib/catalog-zone' do
+    action :delete
+    recursive true
+  end
+
+  directory '/usr/local/etc/catalog-zone' do
+    action :delete
+    recursive true
+  end
+
+  execute 'delete pdns database' do
+    environment('MYSQL_PWD' => mysqladmin['password'])
+    command <<-EOF
+      mysql -u #{mysqladmin['username']} -e \
+        "DROP DATABASE IF EXISTS #{pdns_attr['db']['dbname']};"
+    EOF
+  end
+end
+
+return unless pdns_attr['enabled']
 
 require 'ipaddress'
 
@@ -180,39 +217,4 @@ begin
       end
     end
   end
-end
-
-# install catalog-zone-manage
-cookbook_file '/usr/local/sbin/catalog-zone-manage' do
-  source 'powerdns/catalog-zone-manage.py'
-  mode '0755'
-end
-
-directory '/usr/local/lib/catalog-zone' do
-  action :create
-end
-
-cookbook_file '/usr/local/lib/catalog-zone/zone.j2' do
-  source 'powerdns/catalog-zone.j2'
-end
-
-directory '/usr/local/etc/catalog-zone' do
-  action :create
-end
-
-template '/usr/local/etc/catalog-zone/catalog-zone.conf' do
-  source 'powerdns/catalog-zone.conf.erb'
-
-  zone = "catalog.#{node['bcpc']['cloud']['domain']}"
-
-  variables(
-    zone: zone,
-    zone_file: "#{Chef::Config[:file_cache_path]}/#{zone}.zone",
-    zone_template: '/usr/local/lib/catalog-zone/zone.j2'
-  )
-end
-
-# create/synchronize the catalog zone
-execute 'sync catalog zone' do
-  command '/usr/local/sbin/catalog-zone-manage --sync'
 end

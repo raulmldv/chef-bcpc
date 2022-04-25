@@ -2,6 +2,9 @@
 # managed by ansible
 ###############################################################################
 
+{% if dns_search is defined and dns_search | length %}
+search {{ dns_search | join(' ') }}
+{% endif %}
 nameserver 127.0.0.1
 nameserver {{ cloud_ip }}
 {% for ns in dns['servers'] %}
