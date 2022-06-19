@@ -35,4 +35,5 @@
 - name: apt-get update
   apt:
     update_cache: yes
+  ignore_errors: true
   when: sources_list.changed  # noqa no-handler

@@ -42,10 +42,6 @@ switch_config() {
 }
 
 base_config() {
-    for s in iscsid; do
-        sudo systemctl stop ${s}
-        sudo systemctl disable ${s}
-    done
     if on_edge "${1}"; then
         ETH0_USE_ROUTES=true
     else
@@ -73,7 +69,6 @@ apt_configuration() {
 }
 
 package_installation() {
-    dpkg --remove-architecture i386
     apt="sudo DEBIAN_FRONTEND=noninteractive apt-get -y"
     ${apt} update
     ${apt} install lldpd traceroute bird2 iptables-persistent

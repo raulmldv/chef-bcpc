@@ -19,6 +19,9 @@ Protocol 2
 Port 22
 {% if ansible_virtualization_type == 'virtualbox' %}
 ListenAddress {{ virtualbox['nat_ip'] }}
+# avert your eyes, aieeeee!
+{% elif ansible_virtualization_type == 'NA' %}
+ListenAddress {{ ansible_eth0.ipv4.address }}
 {% elif libvirt_kvm_guest %}
 ListenAddress {{ ansible_eth0.ipv4.address }}
 {% endif %}
@@ -26,6 +29,7 @@ ListenAddress {{ interfaces['service']['ip'] }}
 {% for transit in transit_interfaces -%}
 ListenAddress {{ transit['ip'] | ipaddr('address') }}
 {% endfor %}
+
 
 # Logging
 SyslogFacility AUTH

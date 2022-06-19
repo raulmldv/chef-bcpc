@@ -235,14 +235,16 @@ ubuntu_apt:
     - universe
     - multiverse
   sources:
-    - dist: bionic
+    - dist: focal
       url: http://archive.ubuntu.com/ubuntu
-    - dist: bionic-backports
-      url: http://archive.ubuntu.com/ubuntu
-    - dist: bionic-security
+    - dist: focal-security
       url: http://security.ubuntu.com/ubuntu
-    - dist: bionic-updates
+    - dist: focal-backports
       url: http://archive.ubuntu.com/ubuntu
+    - dist: focal-updates
+      url: http://us.ports.ubuntu.com/ubuntu-ports
+    - dist: focal-security
+      url: http://us.ports.ubuntu.com/ubuntu-ports
 
 ###############################################################################
 # bird
@@ -279,7 +281,7 @@ hardware_cpu_load_microcode: true
 # If pin_version is false, track linux-{{ variant }} upstream
 # For example, linux-{{ generic-hwe-18.04 }}
 kernel_pin_version: false
-kernel_variant: generic-hwe-18.04-edge
+kernel_variant: generic-hwe-20.04-edge
 kernel_version: ''
 
 # Use this to *add* more reserved ports; i.e. modify value of

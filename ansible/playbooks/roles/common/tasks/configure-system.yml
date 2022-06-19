@@ -194,6 +194,7 @@
 
 # Install kexec-tools
 - name: Install kexec-tools
+  ignore_errors: true
   apt:
     name: kexec-tools
 
