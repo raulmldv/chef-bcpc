@@ -119,5 +119,16 @@ default['bcpc']['nova']['scheduler']['filter']['anti_affinity_availability_zone'
 default['bcpc']['nova']['scheduler']['filter']['anti_affinity_availability_zone']['name'] = 'AntiAffinityAvailabilityZoneFilter'
 default['bcpc']['nova']['scheduler']['filter']['anti_affinity_availability_zone']['filterPath'] = 'nova.scheduler.filters.anti_affinity_availability_zone_filter.AntiAffinityAvailabilityZoneFilter'
 
+# Required image property scheduler filter
+default['bcpc']['nova']['scheduler']['filter']['required_image_property']['enabled'] = false
+default['bcpc']['nova']['scheduler']['filter']['required_image_property']['name'] = 'RequiredImagePropertyFilter'
+default['bcpc']['nova']['scheduler']['filter']['required_image_property']['filterPath'] = 'nova.scheduler.filters.required_image_property_filter.RequiredImagePropertyFilter'
+
+# aggregate image properties isolation
+default['bcpc']['nova']['scheduler']['filter']['aggregate_image_isolation']['name'] = 'AggregateImagePropertiesIsolation'
+
+# isolated aggregate filtering
+default['bcpc']['nova']['scheduler']['filter']['isolated_aggregate_filtering']['enabled'] = false
+
 # (Integer) Automatically confirm resizes after N seconds.
 default['bcpc']['nova']['resize_confirm_window'] = 30
