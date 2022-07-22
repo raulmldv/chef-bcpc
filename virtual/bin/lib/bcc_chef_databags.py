@@ -1,4 +1,4 @@
-# Copyright 2021, Bloomberg Finance L.P.
+# Copyright 2022, Bloomberg Finance L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -131,15 +131,21 @@ class EtcdSSL:
             self.__certs[client]['cert'].get_subject().C = "US"
             self.__certs[client]['cert'].get_subject().ST = "New York"
             self.__certs[client]['cert'].get_subject().L = "New York City"
-            self.__certs[client]['cert'].get_subject().O = "Bloomberg L.P." # noqa
-            self.__certs[client]['cert'].get_subject().OU = "ENG Cloud Infrastructure" # noqa
+            self.__certs[client]['cert'].get_subject().O = \
+                "Bloomberg L.P." # noqa
+            self.__certs[client]['cert'].get_subject().OU = \
+                "ENG Cloud Infrastructure"
             self.__certs[client]['cert'].get_subject().CN = client
             self.__certs[client]['cert'].set_version(2)
             self.__certs[client]['cert'].set_serial_number(rand_int)
             self.__certs[client]['cert'].gmtime_adj_notBefore(0)
-            self.__certs[client]['cert'].gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60) # noqa
+            self.__certs[client]['cert'].gmtime_adj_notAfter(
+                10 * 365 * 24 * 60 * 60
+            )
             self.__certs[client]['cert'].set_issuer(self.__ca.get_issuer())
-            self.__certs[client]['cert'].set_pubkey(self.__certs[client]['key']) # noqa
+            self.__certs[client]['cert'].set_pubkey(
+                self.__certs[client]['key']
+            )
 
             self.__certs[client]['cert'].add_extensions([
                 crypto.X509Extension(b"basicConstraints", False, b"CA:FALSE"),
@@ -158,7 +164,8 @@ class EtcdSSL:
                     b"keyid:always",
                     issuer=self.__ca
                 ),
-                crypto.X509Extension(b"extendedKeyUsage", False, b"clientAuth",), # noqa
+                crypto.X509Extension(b"extendedKeyUsage", False,
+                                     b"clientAuth",),
                 crypto.X509Extension(b"keyUsage", False, b"digitalSignature"),
             ])
 
@@ -172,7 +179,8 @@ class EtcdSSL:
 
                 self.__certs[client]['cert'].add_extensions([
                     crypto.X509Extension(b'subjectAltName', False, alt_names),
-                    crypto.X509Extension(b"extendedKeyUsage", False, b"serverAuth"), # noqa
+                    crypto.X509Extension(b"extendedKeyUsage", False,
+                                         b"serverAuth"),
                 ])
 
             self.__certs[client]['cert'].sign(self.__key, 'sha256')
@@ -269,7 +277,9 @@ class BCCChefDatabags:
         return base64.urlsafe_b64encode(os.urandom(32)).decode()
 
     def generate_string(self, length=32):
-        return ''.join((secrets.choice(string.ascii_letters) for i in range(length))) # noqa
+        return ''.join(
+            secrets.choice(string.ascii_letters) for i in range(length)
+        )
 
     def generate_uuid(self):
         return str(uuid.uuid4())

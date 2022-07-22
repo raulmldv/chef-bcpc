@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-# Copyright 2021, Bloomberg Finance L.P.
+# Copyright 2022, Bloomberg Finance L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,15 @@ function main {
     find . -name "*.sh" -exec shellcheck -x {} \;
     find . -name "*.sh" -exec bashate -e E006 {} \;
     find . -name "*.py" \
-         ! -path "./chef/cookbooks/bcpc/files/default/*" \
-         -exec flake8 {} \;
+        ! -path "./chef/cookbooks/bcpc/files/default/etcd3gw/watch.py" \
+        ! -path \
+            "./chef/cookbooks/bcpc/files/default/neutron/external_net_db.py" \
+        ! -path "./chef/cookbooks/bcpc/files/default/neutron/model_query.py" \
+        ! -path "./chef/cookbooks/bcpc/files/default/nova/api.py" \
+        ! -path "./chef/cookbooks/bcpc/files/default/nova/hardware.py" \
+        ! -path "./chef/cookbooks/bcpc/files/default/nova/hw.py" \
+        ! -path "./chef/cookbooks/bcpc/files/default/nova/vif.py" \
+        -exec flake8 {} \;
     ansible-lint -x var-naming \
                  -x meta-no-info \
                  -x meta-no-tags ansible/
