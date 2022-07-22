@@ -37,7 +37,7 @@ function install_linters_linux {
     pip install -U setuptools wheel pip
     pip install -I --force \
         bashate==2.1.0 \
-        flake8==4.0.1 \
+        hacking==4.1.0 \
         ansible-lint==5.4.0 \
         ansible==5.4.0
 

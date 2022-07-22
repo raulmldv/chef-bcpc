@@ -14,15 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-__metaclass__ = type
-
 import ipaddress
+import six
 
 
+@six.add_metaclass(type)
 def primary_ip(a, *args, **kw):
     for transit in a:
         if 'primary' in transit and transit['primary'] is True:
