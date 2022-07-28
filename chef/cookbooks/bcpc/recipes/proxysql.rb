@@ -399,11 +399,13 @@ end
 # NOTE: Replace with 'chef_sleep' if move to chef >= 15.5
 sync_sleep = (node['bcpc']['proxysql']['cluster_diffs_before_sync'] *
               node['bcpc']['proxysql']['cluster_check_interval_ms'] * 2.0) / 1000
-chef_sleep 'wait for proxysql sync' do
-  seconds "#{sync_sleep}"
+# rubocop:disable Chef/Modernize/ExecuteSleep
+execute 'wait for proxysql sync' do
   action :nothing
+  command "sleep #{sync_sleep}"
   notifies :create, 'bcpc_proxysql_peer[add as peer to primary]', :immediately
 end
+# rubocop:enable Chef/Modernize/ExecuteSleep
 
 # Add ourselves to the existing ProxySQL cluster by adding ourselves as a
 # peer to the primary.

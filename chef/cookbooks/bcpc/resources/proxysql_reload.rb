@@ -1,3 +1,4 @@
+# rubocop:disable Chef/Deprecations/ResourceWithoutUnifiedTrue
 # Cookbook:: bcpc
 # Resource:: proxysql-user
 #
@@ -20,8 +21,6 @@
 #
 # See https://docs.chef.io/custom_resources_notes/#custom-resources for
 # additional information.
-
-unified_mode true
 
 # Host of the ProxySQL service to reload the configuration of
 property :host, String, default: node['bcpc']['proxysql']['host']

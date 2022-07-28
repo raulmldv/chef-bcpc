@@ -1,5 +1,5 @@
 """
-Copyright 2020, Bloomberg Finance L.P.
+Copyright 2022, Bloomberg Finance L.P.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,10 +15,8 @@ limitations under the License.
 """
 
 import ipaddress
-import six
 
 
-@six.add_metaclass(type)
 def primary_ip(a, *args, **kw):
     for transit in a:
         if 'primary' in transit and transit['primary'] is True:
