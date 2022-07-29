@@ -1,3 +1,4 @@
+# rubocop:disable Chef/Deprecations/ResourceWithoutUnifiedTrue
 # Cookbook:: bcpc
 # Resource:: proxysql-peer
 #

@@ -23,9 +23,11 @@ class FilterModule(object):
 
     def get_host_traits(self, host, license_traits):
         """Get traits for each host with specified licenses.
+
         Parameters:
         host (dict): dict of host information in inventory
         license_traits (dict): dict of licenses' key and traits' value
+
         Returns:
         host_traits (str): licensed traits of the host with --trait
         """
@@ -38,9 +40,11 @@ class FilterModule(object):
 
     def get_aggregates_to_add_host(self, host, license_aggregate):
         """Get aggregates for each host with specified licenses.
+
         Parameters:
         host (dict): dict of host information in inventory
         license_aggregate (dict): dict of licenses to aggregates
+
         Returns:
         host_aggregates (str): aggregates the host should be added to
         """
@@ -53,9 +57,11 @@ class FilterModule(object):
 
     def get_aggregates_to_remove_host(self, host, license_aggregate):
         """Get aggregates that each host doesn't have licenses.
+
         Parameters:
         host (dict): dict of host information in inventory
         license_aggregate (dict): dict of licenses to aggregates
+
         Returns:
         aggregates (str): aggregates the host should be removed from
         """

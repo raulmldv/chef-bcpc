@@ -257,6 +257,19 @@ bird:
     name: bionic-backports
 
 ###############################################################################
+# license traits
+###############################################################################
+
+license_trait_keyword: CUSTOM_LICENSE_
+
+licenses:
+  enabled: false
+  traits:
+    - name: unlicensed
+      aggregate: unlicensed
+      trait: "{{ license_trait_keyword }}NONE"
+
+###############################################################################
 # grub
 ###############################################################################
 
@@ -294,8 +307,8 @@ system_additional_reserved_ports: []
 system_enable_ipv6: false
 
 # Any other sysctl parameters that are to be overridden
-system_parameters_kernel.pid_max: 4194303  # noqa var-naming
-system_parameters_net.nf_conntrack_max: 262144  # noqa var-naming
+system_parameters_kernel.pid_max: 4194303
+system_parameters_net.nf_conntrack_max: 262144
 
 # Read-ahead value for all block devices, in kb
 system_readahead_kb: 512
