@@ -105,6 +105,7 @@ function cleanup_image {
     # blank netplan machine-id (DUID) so machines get unique ID generated on
     # boot
     truncate -s 0 /etc/machine-id
+    truncate -s 0 /var/lib/dbus/machine-id
 
     # remove the contents of /tmp and /var/tmp
     rm -rf /tmp/* /var/tmp/*
