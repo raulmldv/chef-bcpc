@@ -27,6 +27,10 @@ apt_url="${BCC_APT_URL}"
 http_proxy_url="${BCC_HTTP_PROXY_URL}"
 https_proxy_url="${BCC_HTTPS_PROXY_URL}"
 kernel_version="${BCC_KERNEL_VERSION}"
+os_distribution="bionic"
+if [[ "${kernel_version}" == *"20"* ]]; then
+    os_distribution="focal"
+fi
 
 function main {
     configure_apt
@@ -56,10 +60,10 @@ function configure_apt {
 
     if [ -n "${apt_url}" ]; then
 cat << EOF > /etc/apt/sources.list
-deb ${apt_url} focal main restricted universe multiverse
-deb ${apt_url} focal-backports main restricted universe multiverse
-deb ${apt_url} focal-security main restricted universe multiverse
-deb ${apt_url} focal-updates main restricted universe multiverse
+deb ${apt_url} ${os_distribution} main restricted universe multiverse
+deb ${apt_url} ${os_distribution}-backports main restricted universe multiverse
+deb ${apt_url} ${os_distribution}-security main restricted universe multiverse
+deb ${apt_url} ${os_distribution}-updates main restricted universe multiverse
 EOF
     fi
 
@@ -105,7 +109,9 @@ function cleanup_image {
     # blank netplan machine-id (DUID) so machines get unique ID generated on
     # boot
     truncate -s 0 /etc/machine-id
-    truncate -s 0 /var/lib/dbus/machine-id
+    if [ "${os_distribution}" == "focal" ]; then
+        truncate -s 0 /var/lib/dbus/machine-id
+    fi
 
     # remove the contents of /tmp and /var/tmp
     rm -rf /tmp/* /var/tmp/*
@@ -129,7 +135,13 @@ function cleanup_image {
 function download_debs {
     # Resynchronize package index files after above cleanup
     apt-get update
-    apt-get install --download-only -y bird2 chrony tinyproxy unbound
+    if [ "${os_distribution}" == "bionic" ]; then
+        apt-get install --download-only -y -t bionic-backports \
+            bird2 init-system-helpers
+	apt-get install --download-only -y chrony tinyproxy unbound
+    elif [ "${os_distribution}" == "focal" ]; then
+        apt-get install --download-only -y bird2 chrony tinyproxy unbound
+    fi
 }
 
 main

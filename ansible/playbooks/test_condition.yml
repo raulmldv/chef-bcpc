@@ -5,3 +5,7 @@
   serial: "{{ serial_number | default(1) }}"
   tags: ['never', 'test-condition'] 
   tasks:
+    - name: Set up tinyproxy
+      import_role: name=common tasks_from=configure-local-proxy      
+    
+  
