@@ -9,10 +9,10 @@
   shell: |
     set -o pipefail
     host_name={{ item }}
-    domain={{ cloud_domain }}
+    infrastructure_domain={{ cloud_infrastructure_domain }}
     trait_keyword={{ license_trait_keyword }}
     host_uuid=$(openstack resource provider list \
-      --name ${host_name}.${domain} -c uuid -f value)
+      --name ${host_name}.${infrastructure_domain} -c uuid -f value)
 
     # remove host CUSTOM_LICENSED traits from host
     traits=$(openstack --os-placement-api-version 1.6 resource provider \
