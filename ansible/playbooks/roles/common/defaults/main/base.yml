@@ -62,16 +62,6 @@ cloud_vars: "{{ {} | combine(
             }}"
 
 ###############################################################################
-# cloud images
-###############################################################################
-
-cloud_images:
-  - file_asset: cirros
-    type: qcow2
-
-all_cloud_images: "{{ cloud_images + additional_cloud_images | default([]) }}"
-
-###############################################################################
 # operator
 ###############################################################################
 
@@ -123,20 +113,6 @@ local_proxy:
     upstream:
       - otherproxy.example.com ".google.com"
       - proxy.example.com # default proxy
-
-###############################################################################
-# chef
-###############################################################################
-
-chef_client:
-  config: {}
-
-chef_extra_cookbooks:
-  - file_asset: logrotate
-
-# all chef extra cookbooks
-all_chef_extra_cookbooks: "{{ chef_extra_cookbooks +
-                              additional_chef_extra_cookbooks | default([]) }}"
 
 ###############################################################################
 # web server file assets

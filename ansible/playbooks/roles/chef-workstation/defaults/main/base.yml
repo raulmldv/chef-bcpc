@@ -1,0 +1,10 @@
+###############################################################################
+# chef
+###############################################################################
+
+chef_extra_cookbooks:
+  - file_asset: logrotate
+
+# all chef extra cookbooks
+all_chef_extra_cookbooks: "{{ chef_extra_cookbooks +
+                              additional_chef_extra_cookbooks | default([]) }}"
