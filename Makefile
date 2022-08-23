@@ -74,13 +74,13 @@ generate-chef-databags :
 configure-operator :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/common.yml \
+		-i ${inventory} ${playbooks}/site.yml \
 		-t configure-operator --limit cloud
 
 configure-node :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/common.yml \
+		-i ${inventory} ${playbooks}/site.yml \
 		-t configure-node --limit cloud
 
 sync-assets :
@@ -104,7 +104,7 @@ configure-chef-workstation :
 configure-chef-nodes :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/common.yml \
+		-i ${inventory} ${playbooks}/site.yml \
 		-t chef-node --limit cloud
 
 configure-common-node :

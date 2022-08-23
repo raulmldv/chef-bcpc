@@ -8,3 +8,126 @@ chef_extra_cookbooks:
 # all chef extra cookbooks
 all_chef_extra_cookbooks: "{{ chef_extra_cookbooks +
                               additional_chef_extra_cookbooks | default([]) }}"
+
+chef_workstation_host: "{{ groups['bootstraps'][0] }}"
+chef_environments_dir: "{{ root_dir }}/chef/environments"
+chef_roles_dir: "{{ root_dir }}/chef/roles"
+chef_databags_dir: "{{ root_dir }}/chef/databags"
+chef_cookbooks_dir: "{{ root_dir }}/chef/cookbooks"
+chef_client_package: "{{ 'chef_client' | find_asset(all_file_assets) }}"
+
+###############################################################################
+# chef roles
+###############################################################################
+
+chef_roles:
+  - name: stubnode
+    description: cloud infrastructure foundational role
+    json_class: Chef::Role
+    chef_type: role
+    run_list:
+      - role[node]
+
+  - name: bootstrap
+    description: bootstrap node
+    json_class: Chef::Role
+    chef_type: role
+    run_list:
+      - role[node]
+      - recipe[bcpc::web-server]
+      - recipe[bcpc::ufw]
+      - recipe[bcpc::rally]
+      - recipe[bcpc::rally-deploy]
+
+  - name: headnode
+    description: cloud infrastructure services
+    json_class: Chef::Role
+    chef_type: role
+    run_list:
+      - role[node]
+      - recipe[bcpc::haproxy]
+      - recipe[bcpc::etcd-member]
+      - recipe[bcpc::memcached]
+      - recipe[bcpc::unbound]
+      - recipe[bcpc::consul]
+      - recipe[bcpc::mysql]
+      - recipe[bcpc::proxysql]
+      - recipe[bcpc::powerdns]
+      - recipe[bcpc::apache2]
+      - recipe[bcpc::keystone]
+      - recipe[bcpc::glance]
+      - recipe[bcpc::neutron-head]
+      - recipe[bcpc::placement]
+      - recipe[bcpc::nova-head]
+      - recipe[bcpc::cinder]
+      - recipe[bcpc::horizon]
+      - recipe[bcpc::heat]
+      - recipe[bcpc::os-quota]
+      - recipe[bcpc::flavors]
+      - recipe[bcpc::watcher]
+
+  - name: rmqnode
+    description: cloud infrastructure MQ services
+    json_class: Chef::Role
+    chef_type: role
+    run_list:
+      - role[node]
+      - recipe[bcpc::rabbitmq]
+
+  - name: node
+    description: common role for all bcpc nodes
+    json_class: Chef::Role
+    chef_type: role
+    run_list:
+      - recipe[bcpc::default]
+      - recipe[bcpc::ssl]
+      - recipe[bcpc::cloud-archive]
+      - recipe[bcpc::postfix]
+      - recipe[bcpc::common-packages]
+      - recipe[bcpc::kexec]
+      - recipe[bcpc::apport]
+      - recipe[bcpc::etckeeper]
+      - recipe[bcpc::cpupower]
+      - recipe[bcpc::getty]
+      - recipe[bcpc::hwrng]
+      - recipe[bcpc::etcd-proxy]
+      - recipe[bcpc::calico-felix]
+
+  - name: storagenode
+    description: storage node
+    json_class: Chef::Role
+    chef_type: role
+    run_list:
+      - role[node]
+      - recipe[bcpc::ceph-osd]
+
+  - name: storageheadnode
+    description: storage infrastructure services
+    json_class: Chef::Role
+    chef_type: role
+    run_list:
+      - role[node]
+      - recipe[bcpc::ceph-mon]
+      - recipe[bcpc::ceph-mgr]
+      - recipe[bcpc::ceph-pools-openstack]
+
+  - name: worknode
+    description: cloud compute services
+    json_class: Chef::Role
+    chef_type: role
+    run_list:
+      - role[node]
+      - recipe[bcpc::memcached]
+      - recipe[bcpc::calico-work]
+      - recipe[bcpc::nova-compute]
+
+###############################################################################
+# additional_runlists
+###############################################################################
+
+#additional_runlists:
+#  node:
+#    - recipe[bcpc::default]
+#  bootstrap:
+#    - recipe[bcpc::default]
+
