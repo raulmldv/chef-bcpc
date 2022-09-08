@@ -26,9 +26,13 @@ LOG = logging.getLogger(__name__)
 
 class _AntiAffinityAvailabilityZoneFilter(filters.BaseHostFilter):
     """Checks the availability zone of the host if the
+
     availability_zone_anti_affinity is set to true.
+
     If the host is from a different zone than zones in the server group
-    it returns true, otherwise returns false."""
+
+    it returns true, otherwise returns false.
+    """
 
     # a variable which is checked for all scheduler filters during a rebuild
     # for each filter.

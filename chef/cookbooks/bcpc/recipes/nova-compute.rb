@@ -259,6 +259,43 @@ cookbook_file '/usr/lib/python3/dist-packages/nova/virt/libvirt/vif.py' do
   notifies :restart, 'service[nova-compute]', :delayed
 end
 
+# Add feature to rewrite monitor addresses in the domain XML using values from
+# migration.conf instead to faciliate Ceph monitor migration exercises
+cookbook_file '/usr/lib/python3/dist-packages/nova/virt/libvirt/migration.py' do
+  source 'nova/migration.py'
+  notifies :run, 'execute[py3compile-nova]', :immediately
+  notifies :restart, 'service[nova-compute]', :delayed
+end
+
+# Do the same for nova.block_device_mappings when refreshing connection_info
+cookbook_file '/usr/lib/python3/dist-packages/nova/virt/block_device.py' do
+  source 'nova/block_device.py'
+  notifies :run, 'execute[py3compile-nova]', :immediately
+  notifies :restart, 'service[nova-compute]', :delayed
+end
+
+# And do the same when using rbd_utils (used by the ImageBackend for net-new BDMs)
+cookbook_file '/usr/lib/python3/dist-packages/nova/virt/libvirt/storage/rbd_utils.py' do
+  source 'nova/rbd_utils.py'
+  notifies :run, 'execute[py3compile-nova]', :immediately
+  notifies :restart, 'service[nova-compute]', :delayed
+end
+
+# (rendition of): https://review.opendev.org/c/openstack/nova/+/852002
+cookbook_file '/usr/lib/python3/dist-packages/nova/virt/libvirt/guest.py' do
+  source 'nova/guest.py'
+  notifies :run, 'execute[py3compile-nova]', :immediately
+  notifies :restart, 'service[nova-compute]', :delayed
+end
+
+template '/etc/ceph/migration.conf' do
+  action node['bcpc']['ceph']['mon-migration']['enabled'] ? :create : :delete
+  source 'ceph/migration.conf.erb'
+  owner 'root'
+  group 'root'
+  mode '0644'
+end
+
 execute 'py3compile-nova' do
   action :nothing
   command 'py3compile -p python3-nova'

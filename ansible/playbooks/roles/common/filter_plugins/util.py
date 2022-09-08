@@ -1,5 +1,5 @@
 """
-Copyright 2020, Bloomberg Finance L.P.
+Copyright 2022, Bloomberg Finance L.P.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,10 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
-from __future__ import (absolute_import, division, print_function)
-
-__metaclass__ = type
 
 import ipaddress
 
@@ -65,6 +61,12 @@ def update_chef_node_host_vars(a, *args, **kw):
     node_details['normal']['service_ip'] = interfaces['service']['ip']
     node_details['normal']['host_vars'] = {}
     node_details['normal']['host_vars'].update({'interfaces': interfaces})
+
+    licenses = hostvars.get('licenses')
+
+    if licenses is not None:
+        licenses = {'licenses': licenses}
+        node_details['normal'].update(licenses)
 
     # add aggregate to top level node attributes section
     aggregate = hostvars.get('aggregate')

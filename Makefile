@@ -5,6 +5,7 @@ export inventory = ansible/inventory.yml
 export playbooks = ansible/playbooks
 export ANSIBLE_CONFIG = ansible/ansible.cfg
 
+etcdnodes = $$(ansible etcdnodes -i ${inventory} --list | tail -n +2 | wc -l)
 headnodes = $$(ansible headnodes -i ${inventory} --list | tail -n +2 | wc -l)
 rmqnodes = $$(ansible rmqnodes -i ${inventory} --list | tail -n +2 | wc -l)
 storagenodes = \
@@ -23,11 +24,12 @@ all : \
 	configure-web-server \
 	configure-common-node \
 	run-chef-client \
-	reweight-ceph-osds \
+	configure-ceph \
 	add-cloud-images \
 	register-compute-nodes \
 	enable-compute-service \
 	configure-host-aggregates \
+	configure-licenses \
 	print-success-banner
 
 create: create-virtual-network create-virtual-hosts
@@ -114,6 +116,7 @@ configure-common-node :
 
 run-chef-client : \
 	run-chef-client-bootstraps \
+	run-chef-client-etcdnodes \
 	run-chef-client-rmqnodes \
 	run-chef-client-storageheadnodes \
 	run-chef-client-headnodes \
@@ -126,6 +129,22 @@ run-chef-client-bootstraps :
 	ansible-playbook -v \
 		-i ${inventory} ${playbooks}/site.yml \
 		-t chef-client --limit bootstraps
+
+run-chef-client-etcdnodes :
+
+	@if [ "${etcdnodes}" -gt 0 ]; then \
+		ansible-playbook -v \
+			-i ${inventory} ${playbooks}/site.yml \
+			-t chef-client --limit etcdnodes \
+			-e "step=1"; \
+		\
+		if [ "${etcdnodes}" -gt 1 ]; then \
+			ansible-playbook -v \
+				-i ${inventory} ${playbooks}/site.yml \
+				-t chef-client --limit etcdnodes \
+				-e "step=1"; \
+		fi \
+	fi
 
 run-chef-client-rmqnodes :
 
@@ -195,16 +214,16 @@ run-chef-client-stubnodes :
 			-t chef-client --limit stubnodes; \
 	fi
 
-reweight-ceph-osds :
+configure-ceph :
 
 	@if [ "${storageheadnodes}" -gt 0 ]; then \
 		ansible-playbook -v \
 			-i ${inventory} ${playbooks}/site.yml \
-			-t reweight-ceph-osds --limit storageheadnodes; \
+			-t configure-ceph --limit storageheadnodes; \
 	else \
 		ansible-playbook -v \
 			-i ${inventory} ${playbooks}/site.yml \
-			-t reweight-ceph-osds --limit headnodes; \
+			-t configure-ceph --limit headnodes; \
 	fi
 
 add-cloud-images :
@@ -248,6 +267,12 @@ configure-host-aggregates :
 	ansible-playbook -v \
 		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t configure-host-aggregates --limit headnodes
+
+configure-licenses :
+
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/headnodes.yml \
+		-t configure-licenses --limit headnodes
 
 define SUCCESS_BANNER
                 _

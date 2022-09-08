@@ -21,6 +21,8 @@ chef_environment:
         cmdline_linux:
           - net.ifnames=0
           - biosdevname=0
+      networking:
+        mtu: "{{ networking['mtu'] }}"
       nova:
         cpu_config:
           AuthenticAMD:
@@ -35,6 +37,7 @@ chef_environment:
       openstack:
         flavors:
           enabled: true
+      licenses: "{{ licenses }}"
       local_proxy: "{{ local_proxy }}"
       zones: "{{ zones }}"
 
@@ -61,6 +64,14 @@ chef_roles:
       - recipe[bcpc::rally]
       - recipe[bcpc::rally-deploy]
 
+  - name: etcdnode
+    description: etcd node
+    json_class: Chef::Role
+    chef_type: role
+    run_list:
+      - role[node]
+      - recipe[bcpc::etcd-member]
+
   - name: headnode
     description: cloud infrastructure services
     json_class: Chef::Role
@@ -68,7 +79,6 @@ chef_roles:
     run_list:
       - role[node]
       - recipe[bcpc::haproxy]
-      - recipe[bcpc::etcd-member]
       - recipe[bcpc::memcached]
       - recipe[bcpc::unbound]
       - recipe[bcpc::consul]

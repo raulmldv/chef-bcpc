@@ -26,6 +26,12 @@ def init_cloud?
   nodes.empty?
 end
 
+def init_etcd?
+  nodes = search(:node, 'roles:etcdnode')
+  nodes = nodes.reject { |n| n['hostname'] == node['hostname'] }
+  nodes.empty?
+end
+
 def init_rmq?
   nodes = search(:node, 'roles:rmqnode')
   nodes = nodes.reject { |n| n['hostname'] == node['hostname'] }
@@ -40,6 +46,10 @@ end
 
 def bootstrap?
   search(:node, "role:bootstrap AND hostname:#{node['hostname']}").any?
+end
+
+def etcdnode?
+  search(:node, "role:etcdnode AND hostname:#{node['hostname']}").any?
 end
 
 def headnode?
@@ -68,6 +78,21 @@ end
 
 def bootstraps
   nodes = search(:node, 'role:bootstrap')
+  nodes.sort! { |a, b| a['hostname'] <=> b['hostname'] }
+end
+
+def etcdnodes(exclude: nil, all: false)
+  nodes = []
+
+  if !exclude.nil?
+    nodes = search(:node, 'roles:etcdnode')
+    nodes = nodes.reject { |h| h['hostname'] == exclude }
+  elsif all == true
+    nodes = search(:node, 'role:etcdnode')
+  else
+    nodes = search(:node, 'roles:etcdnode')
+  end
+
   nodes.sort! { |a, b| a['hostname'] <=> b['hostname'] }
 end
 
@@ -133,6 +158,13 @@ def node_roles
   matches[0]['roles']
 end
 
+def node_licenses
+  matches = search(:node, "hostname:#{node['hostname']}")
+  raise "the node '#{node['hostname']}' does not exist or has "\
+    'multiple matches' if matches.length != 1
+  matches[0]['licenses'].nil? ? [] : matches[0]['licenses']
+end
+
 def generate_service_catalog_uri(svcprops, access_level)
   fqdn = node['bcpc']['cloud']['fqdn']
   port = svcprops['ports'][access_level]
@@ -192,12 +224,19 @@ def os_adminrc
 end
 
 def etcdctl_env
-  if headnode?
+  if etcdnode?
     {
       'ETCDCTL_API' => '3',
       'ETCDCTL_CACERT' => node['bcpc']['etcd']['ca']['crt']['filepath'],
       'ETCDCTL_CERT' => node['bcpc']['etcd']['server']['crt']['filepath'],
       'ETCDCTL_KEY' => node['bcpc']['etcd']['server']['key']['filepath'],
+    }
+  elsif headnode?
+    {
+      'ETCDCTL_API' => '3',
+      'ETCDCTL_CACERT' => node['bcpc']['etcd']['ca']['crt']['filepath'],
+      'ETCDCTL_CERT' => node['bcpc']['etcd']['client-rw']['crt']['filepath'],
+      'ETCDCTL_KEY' => node['bcpc']['etcd']['client-rw']['key']['filepath'],
     }
   else
     {
@@ -374,4 +413,15 @@ def openstack_services
 
   # build a hash of service_type => list of uris
   service_list.map { |s| s['Type'] }
+end
+
+# Determine the maximum sane value for a ceph pool's "size".
+# If size N is requested but we have fewer than N hosts, then objects will
+# remain degraded. This function clips the configured replication factor to
+# the number of storagenodes configured in the cluster (or 1, in the case
+# that the cluster is still being bootstrapped).
+def ceph_pool_size(requested_size)
+  # Assume default CRUSH replication policy of host
+  num_storagenodes = search(:node, 'roles:storagenode').length
+  [[requested_size, num_storagenodes].min, 1].max
 end
