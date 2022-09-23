@@ -1,5 +1,5 @@
 - hosts: stubnodes
-  gather_facts: no
+  gather_facts: yes
   serial: "{{ step | default(ansible_play_batch | length) }}"
   roles:
     - common
