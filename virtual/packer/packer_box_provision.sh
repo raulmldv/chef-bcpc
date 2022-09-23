@@ -24,6 +24,7 @@ export DEBIAN_FRONTEND='noninteractive' DEBIAN_PRIORITY='critical'
 
 apt_key_url="${BCC_APT_KEY_URL}"
 apt_url="${BCC_APT_URL}"
+distribution_codename=$(lsb_release -sc)
 http_proxy_url="${BCC_HTTP_PROXY_URL}"
 https_proxy_url="${BCC_HTTPS_PROXY_URL}"
 kernel_version="${BCC_KERNEL_VERSION}"
@@ -56,10 +57,10 @@ function configure_apt {
 
     if [ -n "${apt_url}" ]; then
 cat << EOF > /etc/apt/sources.list
-deb ${apt_url} $(lsb_release -sc) main restricted universe multiverse
-deb ${apt_url} $(lsb_release -sc)-backports main restricted universe multiverse
-deb ${apt_url} $(lsb_release -sc)-security main restricted universe multiverse
-deb ${apt_url} $(lsb_release -sc)-updates main restricted universe multiverse
+deb ${apt_url} ${distribution_codename} main restricted universe multiverse
+deb ${apt_url} ${distribution_codename}-backports main restricted universe multiverse
+deb ${apt_url} ${distribution_codename}-security main restricted universe multiverse
+deb ${apt_url} ${distribution_codename}-updates main restricted universe multiverse
 EOF
     fi
 
@@ -129,13 +130,13 @@ function cleanup_image {
 function download_debs {
     # Resynchronize package index files after above cleanup
     apt-get update
-    if [ "$(lsb_release -sc)" == "bionic" ]; then
+    if [ "${distribution_codename}" == "bionic" ]; then
         apt-get install --download-only -y -t bionic-backports \
             bird2 init-system-helpers
-        apt-get install --download-only -y chrony tinyproxy unbound
-    elif [ "$(lsb_release -sc)" == "focal" ]; then
-        apt-get install --download-only -y bird2 chrony tinyproxy unbound
+    elif [ "${distribution_codename}" == "focal" ]; then
+        apt-get install --download-only -y bird2
     fi
+    apt-get install --download-only -y chrony tinyproxy unbound
 }
 
 main

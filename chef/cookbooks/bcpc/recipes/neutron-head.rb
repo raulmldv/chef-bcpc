@@ -164,15 +164,18 @@ end
 
 # patch an outstanding python3 issue in etcd3gw
 # we do this here and not in bcpc::etcd3gw so we can notify neutron-server
-cookbook_file '/usr/local/lib/python3.6/dist-packages/etcd3gw/watch.py' do
-  source 'etcd3gw/watch.py'
-  notifies :run, 'execute[py3compile-etcd3gw-watch]', :immediately
-  notifies :restart, 'service[neutron-server]', :delayed
-end
 
-execute 'py3compile-etcd3gw-watch' do
-  action :nothing
-  command 'py3compile /usr/local/lib/python3.6/dist-packages/etcd3gw/watch.py'
+if platform?('ubuntu') && node['platform_version'] == '18.04'
+  cookbook_file '/usr/local/lib/python3.6/dist-packages/etcd3gw/watch.py' do
+    source 'etcd3gw/watch.py'
+    notifies :run, 'execute[py3compile-etcd3gw-watch]', :immediately
+    notifies :restart, 'service[neutron-server]', :delayed
+  end
+
+  execute 'py3compile-etcd3gw-watch' do
+    action :nothing
+    command 'py3compile /usr/local/lib/python3.6/dist-packages/etcd3gw/watch.py'
+  end
 end
 
 service 'neutron-server'
