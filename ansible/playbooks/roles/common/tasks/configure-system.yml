@@ -145,8 +145,7 @@
     group: root
     mode: '0644'
 
-# Stop and disable unused services
-- name: Configure system services
+- name: Stop and disable unused services (Bionic)
   service:
     name: "{{ item }}"
     enabled: no
@@ -160,7 +159,7 @@
   ignore_errors: yes  # noqa ignore-errors
   when: ansible_distribution_version == "18.04"
 
-- name: Stop and disable unused services
+- name: Stop and disable unused services (Focal)
   service:
     name: "{{ item }}"
     enabled: no
@@ -181,8 +180,7 @@
   ignore_errors: yes # noqa ignore-errors
   when: ansible_distribution_version == "20.04"
 
-# Purge some Ubuntu packages
-- name: Purge undesirable packages
+- name: Purge unused service packages (Bionic)
   apt:
     name: "{{ item }}"
     purge: yes
@@ -193,8 +191,7 @@
     - ubuntu-release-upgrader-core
   when: ansible_distribution_version == "18.04"
 
-# Purge some Ubuntu stock packages we don't need
-- name: Purge unused service packages
+- name: Purge unused service packages (Focal)
   apt:
     name: "{{ item }}"
     purge: yes
@@ -221,7 +218,6 @@
   apt:
     autoremove: yes
     purge: yes
-  when: ansible_distribution_version == "20.04"
 
 # Configure motd-news
 - name: Configure motd-news

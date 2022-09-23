@@ -17,10 +17,13 @@
 # The on_edge_flag defines whether a router should be left "connected" to
 # the outside such as running DHCP and adding a masquerade source NAT rule.
 
+# The distribution_codename is the codename of the operating system
+# distribution, which should either be "bionic" or "focal"
+
 set -eux
 
+distribution_codename=$(lsb_release -sc)
 on_edge_flag=0
-
 
 on_edge() {
     [[ ${on_edge_flag} == 1 ]]
@@ -45,9 +48,9 @@ switch_config() {
 }
 
 base_config() {
-    if [ "$(lsb_release -sc)" == "bionic" ]; then
+    if [ "${distribution_codename}" == "bionic" ]; then
         disabled_services=(rpcbind lxcfs snapd lxd iscsid)
-    elif [ "$(lsb_release -sc)" == "focal" ]; then
+    elif [ "${distribution_codename}" == "focal" ]; then
         disabled_services=(multipathd.socket multipathd snapd.socket \
             snapd snapd.seeded udisks2)
     fi
@@ -79,7 +82,7 @@ systemd_configuration() {
 
 apt_configuration() {
     # ref: ansible/playbooks/roles/common/tasks/configure-bgp.yml
-    if [ "$(lsb_release -sc)" == "bionic" ]; then
+    if [ "${distribution_codename}" == "bionic" ]; then
         cp "/vagrant/apt-preferences" /etc/apt/preferences.d/98-bird
     fi
 }

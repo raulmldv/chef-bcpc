@@ -52,9 +52,11 @@ end
 
 # patch an outstanding python3 issue in etcd3gw
 # we do this here and not in bcpc::etcd3gw so we can notify calico-dhcp-agent
-cookbook_file '/usr/local/lib/python3.6/dist-packages/etcd3gw/watch.py' do
-  source 'etcd3gw/watch.py'
-  notifies :restart, 'service[calico-dhcp-agent]', :delayed
+if platform?('ubuntu') && node['platform_version'] == '18.04'
+  cookbook_file '/usr/local/lib/python3.6/dist-packages/etcd3gw/watch.py' do
+    source 'etcd3gw/watch.py'
+    notifies :restart, 'service[calico-dhcp-agent]', :delayed
+  end
 end
 
 template '/etc/neutron/neutron.conf' do
