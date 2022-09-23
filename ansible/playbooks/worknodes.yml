@@ -1,5 +1,5 @@
 - hosts: worknodes
-  gather_facts: no
+  gather_facts: yes
   roles:
     - common
     - chef-node

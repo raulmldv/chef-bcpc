@@ -16,13 +16,6 @@
     mode: 0644
   register: chrony_defaults
 
-- name: create systemd dependency work-around directory for chrony
-  file:
-    path: /etc/systemd/system/chrony.service.d
-    recurse: yes
-    state: directory
-  when: ansible_distribution_version == "18.04"
-
 - name: install service to start monitoring sources after getting a default route
   block:
     - name: install the systemd unit

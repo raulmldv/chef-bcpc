@@ -1,8 +1,11 @@
 ###############################################################################
 # openstack
 ###############################################################################
-
-default['bcpc']['openstack']['repo']['enabled'] = true
+if platform?('ubuntu') && node['platform_version'] == '18.04'
+  default['bcpc']['openstack']['repo']['enabled'] = true
+elsif platform?('ubuntu') && node['platform_version'] == '20.04'
+  default['bcpc']['openstack']['repo']['enabled'] = false
+end
 default['bcpc']['openstack']['repo']['url'] = 'http://ubuntu-cloud.archive.canonical.com/ubuntu'
 
 default['bcpc']['openstack']['repo']['release'] = 'ussuri'

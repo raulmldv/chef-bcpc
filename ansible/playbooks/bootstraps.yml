@@ -1,5 +1,5 @@
 - hosts: bootstraps
-  gather_facts: no
+  gather_facts: yes
   roles:
     - common
     - chef-server
