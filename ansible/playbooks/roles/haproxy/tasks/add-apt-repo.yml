@@ -1,0 +1,10 @@
+- name: import haproxy apt key
+  apt_key:
+    data: "{{ lookup('file', '{{ haproxy_repo_key_data }}') if haproxy_repo_key_url is not defined else omit }}"
+    url: "{{ haproxy_repo_key_url if haproxy_repo_key_url is defined else omit }}"
+    state: present
+
+- name: add haproxy repository
+  apt_repository:
+    repo: "{{ haproxy_repo_url | default(haproxy_repo_public_url,true) }}"
+    update_cache: true

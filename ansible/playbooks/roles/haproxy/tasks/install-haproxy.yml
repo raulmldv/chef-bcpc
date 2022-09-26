@@ -1,0 +1,5 @@
+- name: install haproxy dependencies
+  apt:
+    name: "{{ item.name }}"
+    state: "{{ item.state }}"
+  with_items: "{{ haproxy_dependencies }}"
