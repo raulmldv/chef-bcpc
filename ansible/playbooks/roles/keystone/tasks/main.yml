@@ -1,0 +1,3 @@
+- import_tasks: configure-keystone-haproxy.yml
+  become: true
+  tags: [never,configure-keystone-haproxy]

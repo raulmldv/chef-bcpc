@@ -1,0 +1,24 @@
+listen keystone-admin-api
+  bind {{ cloud_ip }}:35357 ssl crt /etc/haproxy/haproxy.pem
+  option tcpka
+  option httpchk GET /healthcheck
+  option httplog
+  option forwardfor
+{% for host in groups['headnodes'] %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:35357 check inter 5s rise 1 fall 1
+{% endfor %}
+
+{% include haproxy_qos_path %}
+
+listen keystone-public-api
+  bind {{ cloud_ip }}:5000 ssl crt /etc/haproxy/haproxy.pem
+  balance source
+  option tcpka
+  option httpchk GET /healthcheck
+  option httplog
+  option forwardfor
+{% for host in groups['headnodes'] %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:5000 check inter 5s rise 1 fall 1
+{% endfor %}
+
+{% include haproxy_qos_path %}

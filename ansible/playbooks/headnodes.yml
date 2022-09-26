@@ -2,6 +2,15 @@
   gather_facts: no
   serial: "{{ step | default(ansible_play_batch | length) }}"
   roles:
-    - common
     - chef-node
+    - cinder
+    - common
+    - glance
+    - haproxy
     - headnode
+    - heat
+    - keystone
+    - neutron
+    - nova
+    - placement
+    - watcher

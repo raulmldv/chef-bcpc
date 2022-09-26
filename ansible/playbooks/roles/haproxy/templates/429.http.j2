@@ -1,0 +1,9 @@
+HTTP/1.0 429 Too Many Requests
+Cache-Control: no-cache
+Connection: close
+Content-Type: text/html
+Retry-After: {{ haproxy_qos_retry_after }}
+
+<html><body><h1>429 Too Many Requests</h1>
+You have executed too many requests and have been rate limited. Please see the service SLO{{ " at " + haproxy_qos_slo_url if haproxy_qos_slo_url is not none }} for more information.
+</body></html>

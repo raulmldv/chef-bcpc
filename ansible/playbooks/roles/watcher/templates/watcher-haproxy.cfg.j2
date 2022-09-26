@@ -1,0 +1,12 @@
+listen watcher-api
+  bind {{ cloud_ip }}:9322 ssl crt /etc/haproxy/haproxy.pem
+  balance source
+  option tcpka
+  option httpchk GET /
+  option httplog
+  option forwardfor
+{% for host in groups['headnodes'] %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:9322 check inter 5s rise 1 fall 1
+{% endfor %}
+
+{% include haproxy_qos_path %}

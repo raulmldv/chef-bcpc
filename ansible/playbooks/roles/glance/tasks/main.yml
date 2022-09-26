@@ -1,0 +1,3 @@
+- import_tasks: configure-glance-haproxy.yml
+  become: true
+  tags: [never,configure-glance-haproxy]
