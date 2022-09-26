@@ -1,0 +1,24 @@
+listen nova-api
+  bind {{ cloud_ip }}:8774 ssl crt /etc/haproxy/haproxy.pem
+  balance source
+  option tcpka
+  option httpchk GET /healthcheck
+  option httplog
+  option forwardfor
+{% for host in groups['headnodes'] %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:8774 check inter 5s rise 1 fall 1
+{% endfor %}
+
+{% include haproxy_qos_path %}
+
+listen novncproxy
+  bind {{ cloud_ip }}:6080 ssl crt /etc/haproxy/haproxy.pem
+  balance source
+  option tcpka
+  option httplog
+  option forwardfor
+{% for host in groups['headnodes'] %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:6080 check inter 5s rise 1 fall 1
+{% endfor %}
+
+{% include haproxy_qos_path %}

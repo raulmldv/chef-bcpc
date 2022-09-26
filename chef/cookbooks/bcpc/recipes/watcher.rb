@@ -125,10 +125,6 @@ service 'watcher-api' do
   action [:stop, :disable]
 end
 
-service 'haproxy-watcher' do
-  service_name 'haproxy'
-end
-
 service 'watcher-apis-apache2' do
   service_name 'apache2'
 end
@@ -232,16 +228,6 @@ end
 execute 'watcher-manage db_sync' do
   action :nothing
   command "su -s /bin/sh -c 'watcher-db-manage --config-file /etc/watcher/watcher.conf upgrade'"
-end
-
-# install haproxy fragment
-template '/etc/haproxy/haproxy.d/watcher.cfg' do
-  source 'watcher/haproxy.cfg.erb'
-  variables(
-    headnodes: headnodes(all: true),
-    vip: node['bcpc']['cloud']['vip']
-  )
-  notifies :reload, 'service[haproxy-watcher]', :immediately
 end
 
 execute 'wait for watcher api to become available' do
