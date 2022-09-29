@@ -1,0 +1,3 @@
+- import_tasks: configure-placement-haproxy.yml
+  become: true
+  tags: [never,configure-placement-haproxy]

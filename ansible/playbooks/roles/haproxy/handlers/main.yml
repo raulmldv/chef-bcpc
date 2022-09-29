@@ -1,0 +1,5 @@
+- name: restart haproxy
+  import_tasks: restart_haproxy.yml
+
+- name: reload haproxy
+  import_tasks: reload_haproxy.yml

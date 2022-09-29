@@ -206,16 +206,6 @@ begin
   end
 end
 
-# install haproxy fragment
-template '/etc/haproxy/haproxy.d/heat.cfg' do
-  source 'heat/haproxy.cfg.erb'
-  variables(
-    headnodes: headnodes(all: true),
-    vip: node['bcpc']['cloud']['vip']
-  )
-  notifies :reload, 'service[haproxy-heat]', :immediately
-end
-
 # heat packages installation and service definitions
 heat_packages = %w(heat-api heat-api-cfn heat-engine python3-heat-dashboard)
 package heat_packages
@@ -232,10 +222,6 @@ end
 
 service 'heat-apis-apache2' do
   service_name 'apache2'
-end
-
-service 'haproxy-heat' do
-  service_name 'haproxy'
 end
 
 heat_processes = if !node['bcpc']['heat']['api_workers'].nil?

@@ -1,0 +1,29 @@
+listen heat-api
+  bind {{ cloud_ip }}:8004 ssl crt /etc/haproxy/haproxy.pem
+  balance source
+  option tcpka
+  option httpchk GET /healthcheck
+  option httplog
+  option forwardfor
+{% for host in groups['headnodes'] %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:8004 check inter 5s rise 1 fall 1
+{% endfor %}
+
+{% include haproxy_qos_path %}
+
+  http-request add-header X-Forwarded-Proto https if { ssl_fc }
+
+listen heat-api-cfn
+  bind {{ cloud_ip }}:8000 ssl crt /etc/haproxy/haproxy.pem
+  balance source
+  option tcpka
+  option httpchk GET /healthcheck
+  option httplog
+  option forwardfor
+{% for host in groups['headnodes'] %}
+  server {{ host }} {{ hostvars[host]['interfaces']['service']['ip'] }}:8000 check inter 5s rise 1 fall 1
+{% endfor %}
+
+{% include haproxy_qos_path %}
+
+  http-request add-header X-Forwarded-Proto https if { ssl_fc }

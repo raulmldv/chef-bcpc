@@ -1,0 +1,8 @@
+localhost
+{{ cloud_ip }}
+{% for cidr in networking_networks_primary_aggregate_cidr %}
+{{ cidr }}
+{% endfor %}
+{% for exemption in haproxy_qos_exemptions %}
+{{ exemption }}
+{% endfor %}

@@ -124,16 +124,6 @@ end
 # create compute service and endpoints ends
 #
 
-# install haproxy fragment
-template '/etc/haproxy/haproxy.d/nova.cfg' do
-  source 'nova/haproxy.cfg.erb'
-  variables(
-    headnodes: headnodes(all: true),
-    vip: node['bcpc']['cloud']['vip']
-  )
-  notifies :reload, 'service[haproxy-nova]', :immediately
-end
-
 # nova package installation and service definition
 package %w(
   ceph-common
@@ -150,9 +140,6 @@ service 'nova-scheduler'
 service 'nova-conductor'
 service 'nova-novncproxy' do
   service_name 'apache2'
-end
-service 'haproxy-nova' do
-  service_name 'haproxy'
 end
 
 # create policy.d dir for policy overrides

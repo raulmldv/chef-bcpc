@@ -78,7 +78,6 @@ chef_roles:
     chef_type: role
     run_list:
       - role[node]
-      - recipe[bcpc::haproxy]
       - recipe[bcpc::memcached]
       - recipe[bcpc::unbound]
       - recipe[bcpc::consul]
