@@ -121,16 +121,6 @@ begin
 end
 # create cinder volume services and endpoints ends
 
-# install haproxy fragment
-template '/etc/haproxy/haproxy.d/cinder.cfg' do
-  source 'cinder/haproxy.cfg.erb'
-  variables(
-    headnodes: headnodes(all: true),
-    vip: node['bcpc']['cloud']['vip']
-  )
-  notifies :reload, 'service[haproxy-cinder]', :immediately
-end
-
 # cinder package installation and service definition
 package ['cinder-scheduler', 'cinder-volume'] do
   action :upgrade
@@ -148,10 +138,6 @@ end
 service 'cinder-scheduler' do
   retries 10
   retry_delay 5
-end
-
-service 'haproxy-cinder' do
-  service_name 'haproxy'
 end
 
 # create policy.d dir for policy overrides

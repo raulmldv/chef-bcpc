@@ -17,6 +17,8 @@ chef_environment:
         fqdn: "{{ cloud_fqdn }}"
         vip: "{{ cloud_ip }}"
       dns: "{{ dns }}"
+      etcd:
+        host_to_cnames: "{{ etcd['host_indexes'] | etcdnode_to_cnames(cloud_domain) }}"
       grub:
         cmdline_linux:
           - net.ifnames=0
@@ -78,7 +80,6 @@ chef_roles:
     chef_type: role
     run_list:
       - role[node]
-      - recipe[bcpc::haproxy]
       - recipe[bcpc::memcached]
       - recipe[bcpc::unbound]
       - recipe[bcpc::consul]
@@ -111,6 +112,7 @@ chef_roles:
     json_class: Chef::Role
     chef_type: role
     run_list:
+      - recipe[bcpc::ohai]
       - recipe[bcpc::default]
       - recipe[bcpc::ssl]
       - recipe[bcpc::cloud-archive]

@@ -24,6 +24,7 @@ export DEBIAN_FRONTEND='noninteractive' DEBIAN_PRIORITY='critical'
 
 apt_key_url="${BCC_APT_KEY_URL}"
 apt_url="${BCC_APT_URL}"
+distribution_codename=$(lsb_release -sc)
 http_proxy_url="${BCC_HTTP_PROXY_URL}"
 https_proxy_url="${BCC_HTTPS_PROXY_URL}"
 kernel_version="${BCC_KERNEL_VERSION}"
@@ -56,10 +57,10 @@ function configure_apt {
 
     if [ -n "${apt_url}" ]; then
 cat << EOF > /etc/apt/sources.list
-deb ${apt_url} bionic main restricted universe multiverse
-deb ${apt_url} bionic-backports main restricted universe multiverse
-deb ${apt_url} bionic-security main restricted universe multiverse
-deb ${apt_url} bionic-updates main restricted universe multiverse
+deb ${apt_url} ${distribution_codename} main restricted universe multiverse
+deb ${apt_url} ${distribution_codename}-backports main restricted universe multiverse
+deb ${apt_url} ${distribution_codename}-security main restricted universe multiverse
+deb ${apt_url} ${distribution_codename}-updates main restricted universe multiverse
 EOF
     fi
 
@@ -105,6 +106,7 @@ function cleanup_image {
     # blank netplan machine-id (DUID) so machines get unique ID generated on
     # boot
     truncate -s 0 /etc/machine-id
+    truncate -s 0 /var/lib/dbus/machine-id
 
     # remove the contents of /tmp and /var/tmp
     rm -rf /tmp/* /var/tmp/*
@@ -128,8 +130,12 @@ function cleanup_image {
 function download_debs {
     # Resynchronize package index files after above cleanup
     apt-get update
-    apt-get install --download-only -y -t bionic-backports \
-        bird2 init-system-helpers
+    if [ "${distribution_codename}" == "bionic" ]; then
+        apt-get install --download-only -y -t bionic-backports \
+            bird2 init-system-helpers
+    elif [ "${distribution_codename}" == "focal" ]; then
+        apt-get install --download-only -y bird2
+    fi
     apt-get install --download-only -y chrony tinyproxy unbound
 }
 

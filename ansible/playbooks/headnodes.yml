@@ -1,7 +1,16 @@
 - hosts: headnodes
-  gather_facts: no
+  gather_facts: yes
   serial: "{{ step | default(ansible_play_batch | length) }}"
   roles:
     - common
     - chef-node
+    - cinder
+    - glance
+    - haproxy
     - headnode
+    - heat
+    - keystone
+    - neutron
+    - nova
+    - placement
+    - watcher

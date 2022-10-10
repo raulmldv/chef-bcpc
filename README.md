@@ -30,7 +30,7 @@ machine for development and testing purposes.
 **NOTE**: It is likely possible to build an environment with 16GB of RAM or less
 if one is willing to make slight modifications to the
  [virtual topology](virtual/topology/hardware.yml) and/or change some of the
-build settings and overrides.  However, we've opted to spec the minimum
+build settings and overrides. However, we've opted to spec the minimum
 requirements slightly more aggressively and target hosts with 32GB RAM or more
 to provide the best out-of-the-box experience.
 
@@ -63,7 +63,7 @@ the name we'd like to use when adding the output Packer box to Vagrant.
 can be set up to leverage a pre-built packer box. An example can be found at
 [s3.json.virtualbox.example](virtual/packer/config/s3.json.virtualbox.example)
 or [s3.json.libvirt.example](virtual/packer/config/s3.json.libvirt.example). Run make target `make download-packer-box`
-and `make upload-packer-box` to download/upload a packer box. 
+and `make upload-packer-box` to download/upload a packer box.
   * Run make target `make create-packer-box`. This will create a Packer box and add it to Vagrant
 with the name specified by `output_packer_box_name`.
   * Set the variables in `virtual/vagrantbox.json` accordingly. When a local custom box built by Packer
@@ -73,7 +73,7 @@ is used, the variable `vagrant_box` needs to be set to the name of the Packer bo
 is specified otherwise.
   * If the Packer box needs to be updated, we recommend first clean up the old Packer box. To clean up a
 Packer box, one must first make sure there's no VM using the Packer box by running `make destroy`, and then
-run `make destroy-packer-box` to clean up the Packer box.  
+run `make destroy-packer-box` to clean up the Packer box.
 * To make changes to the virtual topology without dirtying the tree, copy the
 [hardware.yml](virtual/topology/hardware.yml) and
 [topology.yml](virtual/topology/topology.yml) to files named
@@ -98,10 +98,10 @@ Create a Python virtual environment (virtualenv) and activate it
 python3 -mvenv venv
 source venv/bin/activate
 pip install 'pip>=19.1.1' wheel
-pip install PyYaml ansible netaddr pyOpenSSL cryptography>=3.0
+pip install PyYaml ansible netaddr pyOpenSSL 'cryptography>=3.0,<38.0.0'
 ```
 
-To create a virtualbox build (the default):
+To create a VirtualBox build (the default):
 
 ```shell
 vagrant plugin install vagrant-vbguest
@@ -110,13 +110,29 @@ make create-packer-box
 make create all
 ```
 
-To create a libvirt build:
+To create a libvirt build, first install the following packages and plugins:
 
 ```shell
 sudo apt-get install build-essential dnsmasq libguestfs-tools libvirt-dev pkg-config qemu-utils
 vagrant plugin install vagrant-libvirt vagrant-mutate
+```
+
+If you are using Ubuntu 18.04, a base Bento box for Vagrant can be added with the following commands:
+
+```shell
 vagrant box add bento/ubuntu-18.04 --box-version 202005.21.0 --provider virtualbox
 vagrant mutate bento/ubuntu-18.04 libvirt
+```
+
+Or if you are using Ubuntu 20.04:
+```shell
+vagrant box add bento/ubuntu-20.04 --box-version 202206.03.0 --provider virtualbox
+vagrant mutate bento/ubuntu-20.04 libvirt
+```
+
+After the base Bento box has been added for Vagrant, use the following commands to create a virtual build:
+
+```shell
 export VAGRANT_DEFAULT_PROVIDER=libvirt VAGRANT_VAGRANTFILE=Vagrantfile.libvirt
 make generate-chef-databags
 make create-packer-box
@@ -144,7 +160,7 @@ chef_environment:
            cpu_model: kvm64
 ```
 
-To revert to the default virtualbox provider, as far as the build is
+To revert to the default VirtualBox provider, as far as the build is
 concerned, you can just remove the mutated libvirt box and then unset
 VAGRANT_DEFAULT_PROVIDER and VAGRANT_VAGRANTFILE environment
 variables. However since you must also make sure that the different
@@ -157,6 +173,13 @@ This would look something like this:
 
 ```shell
 $ rm -rf ~/.vagrant.d/boxes/bento-VAGRANTSLASH-ubuntu-18.04/202005.21.0/libvirt/
+$ sudo reboot
+```
+Similarly, to remove the mutated libvirt box built with Ubuntu 20.04,
+the following commands can be used:
+
+```shell
+$ rm -rf ~/.vagrant.d/boxes/bento-VAGRANTSLASH-ubuntu-20.04/202206.03.0/libvirt/
 $ sudo reboot
 ```
 

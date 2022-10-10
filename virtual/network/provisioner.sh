@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2021, Bloomberg Finance L.P.
+# Copyright 2022, Bloomberg Finance L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,12 @@
 # The on_edge_flag defines whether a router should be left "connected" to
 # the outside such as running DHCP and adding a masquerade source NAT rule.
 
+# The distribution_codename is the codename of the operating system
+# distribution, which should either be "bionic" or "focal"
+
 set -eux
 
+distribution_codename=$(lsb_release -sc)
 on_edge_flag=0
 
 on_edge() {
@@ -27,24 +31,33 @@ on_edge() {
 
 switch_config() {
     # enable IPv4 forwarding
-    sudo sed -i 's/#\(net.ipv4.ip_forward\)/\1/g' /etc/sysctl.d/99-sysctl.conf
-    sudo sysctl -q -p /etc/sysctl.d/99-sysctl.conf
+    echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/90-bcpc.conf
+    sysctl -qp /etc/sysctl.d/90-bcpc.conf
 
     if on_edge "${1}"; then
         # add masquerading source NAT rule on spines or super spines
-        sudo iptables -A POSTROUTING -j MASQUERADE -o eth0 -t nat
-        sudo iptables-save | sudo tee /etc/iptables/rules.v4
+        iptables -A POSTROUTING -j MASQUERADE -o eth0 -t nat
+        touch /etc/iptables/rules.v4
+        chmod 0640 /etc/iptables/rules.v4
+        /sbin/iptables-save > /etc/iptables/rules.v4
     fi
 
     # configure BIRD
-    sudo cp "/vagrant/bird/${1}.conf" /etc/bird/bird.conf
-    sudo systemctl restart bird
+    cp "/vagrant/bird/${1}.conf" /etc/bird/bird.conf
+    systemctl restart bird
 }
 
 base_config() {
-    for s in rpcbind lxcfs snapd lxd iscsid; do
-        sudo systemctl stop ${s}
-        sudo systemctl disable ${s}
+    if [ "${distribution_codename}" == "bionic" ]; then
+        disabled_services=(rpcbind lxcfs snapd lxd iscsid)
+    elif [ "${distribution_codename}" == "focal" ]; then
+        disabled_services=(multipathd.socket multipathd snapd.socket \
+            snapd snapd.seeded udisks2)
+    fi
+
+    for s in "${disabled_services[@]}"; do
+        systemctl stop "${s}"
+        systemctl disable "${s}"
     done
     if on_edge "${1}"; then
         ETH0_USE_ROUTES=true
@@ -52,9 +65,9 @@ base_config() {
         ETH0_USE_ROUTES=false
     fi
     sed "s/ETH0_USE_ROUTES/${ETH0_USE_ROUTES}/" \
-        "/vagrant/netplan/${1}.yaml" | sudo tee /etc/netplan/01-netcfg.yaml
-    sudo netplan apply
-    sudo systemctl restart lldpd
+        "/vagrant/netplan/${1}.yaml" | tee /etc/netplan/01-netcfg.yaml
+    netplan apply
+    systemctl restart lldpd
 }
 
 systemd_configuration() {
@@ -64,19 +77,22 @@ systemd_configuration() {
     nameservers=$(netplan ip leases eth0 | grep ^DNS= | sed 's/^DNS=//')
     for nameserver in ${nameservers}; do
         echo "nameserver ${nameserver}"
-    done | sudo tee /etc/resolv.conf
+    done | tee /etc/resolv.conf
 }
 
 apt_configuration() {
     # ref: ansible/playbooks/roles/common/tasks/configure-bgp.yml
-    sudo cp "/vagrant/apt-preferences" /etc/apt/preferences.d/98-bird
+    if [ "${distribution_codename}" == "bionic" ]; then
+        cp "/vagrant/apt-preferences" /etc/apt/preferences.d/98-bird
+    fi
 }
 
 package_installation() {
     dpkg --remove-architecture i386
-    apt="sudo DEBIAN_FRONTEND=noninteractive apt-get -y"
+    apt="sudo DEBIAN_FRONTEND=noninteractive \
+        DEBIAN_PRIORITY=critical apt-get -y"
     ${apt} update
-    ${apt} install lldpd traceroute bird2 iptables-persistent
+    ${apt} install lldpd bird2 iptables-persistent traceroute
 }
 
 opts=$(getopt E "$@")
