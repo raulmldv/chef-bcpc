@@ -5,13 +5,10 @@ export inventory = ansible/inventory.yml
 export playbooks = ansible/playbooks
 export ANSIBLE_CONFIG = ansible/ansible.cfg
 
-etcdnodes = $$(ansible etcdnodes -i ${inventory} --list | tail -n +2 | wc -l)
+auxnodes = $$(ansible auxnodes -i ${inventory} --list | tail -n +2 | wc -l)
 headnodes = $$(ansible headnodes -i ${inventory} --list | tail -n +2 | wc -l)
-rmqnodes = $$(ansible rmqnodes -i ${inventory} --list | tail -n +2 | wc -l)
 storagenodes = \
 	$$(ansible storagenodes -i ${inventory} --list | tail -n +2 | wc -l)
-storageheadnodes = \
-	$$(ansible storageheadnodes -i ${inventory} --list | tail -n +2 | wc -l)
 stubnodes = $$(ansible stubnodes -i ${inventory} --list | tail -n +2 | wc -l)
 
 all : \
@@ -182,9 +179,7 @@ configure-watcher-haproxy :
 
 run-chef-client : \
 	run-chef-client-bootstraps \
-	run-chef-client-etcdnodes \
-	run-chef-client-rmqnodes \
-	run-chef-client-storageheadnodes \
+	run-chef-client-auxnodes \
 	run-chef-client-headnodes \
 	run-chef-client-worknodes \
 	run-chef-client-storagenodes \
@@ -196,50 +191,18 @@ run-chef-client-bootstraps :
 		-i ${inventory} ${playbooks}/site.yml \
 		-t chef-client --limit bootstraps
 
-run-chef-client-etcdnodes :
+run-chef-client-auxnodes :
 
-	@if [ "${etcdnodes}" -gt 0 ]; then \
+	@if [ "${auxnodes}" -gt 0 ]; then \
 		ansible-playbook -v \
 			-i ${inventory} ${playbooks}/site.yml \
-			-t chef-client --limit etcdnodes \
+			-t chef-client --limit auxnodes \
 			-e "step=1"; \
 		\
-		if [ "${etcdnodes}" -gt 1 ]; then \
+		if [ "${auxnodes}" -gt 1 ]; then \
 			ansible-playbook -v \
 				-i ${inventory} ${playbooks}/site.yml \
-				-t chef-client --limit etcdnodes \
-				-e "step=1"; \
-		fi \
-	fi
-
-run-chef-client-rmqnodes :
-
-	@if [ "${rmqnodes}" -gt 0 ]; then \
-		ansible-playbook -v \
-			-i ${inventory} ${playbooks}/site.yml \
-			-t chef-client --limit rmqnodes \
-			-e "step=1"; \
-		\
-		if [ "${rmqnodes}" -gt 1 ]; then \
-			ansible-playbook -v \
-				-i ${inventory} ${playbooks}/site.yml \
-				-t chef-client --limit rmqnodes \
-				-e "step=1"; \
-		fi \
-	fi
-
-run-chef-client-storageheadnodes :
-
-	@if [ "${storageheadnodes}" -gt 0 ]; then \
-		ansible-playbook -v \
-			-i ${inventory} ${playbooks}/site.yml \
-			-t chef-client --limit storageheadnodes \
-			-e "step=1"; \
-		\
-		if [ "${storageheadnodes}" -gt 1 ]; then \
-			ansible-playbook -v \
-				-i ${inventory} ${playbooks}/site.yml \
-				-t chef-client --limit storageheadnodes \
+				-t chef-client --limit auxnodes \
 				-e "step=1"; \
 		fi \
 	fi
@@ -282,15 +245,9 @@ run-chef-client-stubnodes :
 
 configure-ceph :
 
-	@if [ "${storageheadnodes}" -gt 0 ]; then \
-		ansible-playbook -v \
-			-i ${inventory} ${playbooks}/site.yml \
-			-t configure-ceph --limit storageheadnodes; \
-	else \
-		ansible-playbook -v \
-			-i ${inventory} ${playbooks}/site.yml \
-			-t configure-ceph --limit headnodes; \
-	fi
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t configure-ceph --limit storageheadnodes
 
 add-cloud-images :
 
@@ -376,15 +333,9 @@ generate-chef-environment :
 
 adjust-ceph-pool-pgs :
 
-	@if [ "${storageheadnodes}" -gt 0 ]; then \
-		ansible-playbook -v \
-			-i ${inventory} ${playbooks}/site.yml \
-			-t adjust-ceph-pool-pgs --limit storageheadnodes; \
-	else \
-		ansible-playbook -v \
-			-i ${inventory} ${playbooks}/site.yml \
-			-t adjust-ceph-pool-pgs --limit headnodes; \
-	fi
+	ansible-playbook -v \
+		-i ${inventory} ${playbooks}/site.yml \
+		-t adjust-ceph-pool-pgs --limit storageheadnodes
 
 ceph-destroy-osds :
 
