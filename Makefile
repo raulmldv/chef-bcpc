@@ -92,13 +92,13 @@ sync-assets :
 configure-chef-server :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/bootstraps.yml \
 		-t chef-server --limit bootstraps
 
 configure-chef-workstation :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/bootstraps.yml \
 		-t chef-workstation --limit bootstraps
 
 configure-chef-nodes :
@@ -116,7 +116,7 @@ configure-common-node :
 configure-haproxy :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t configure-haproxy -f 1 --limit headnodes
 
 configure-haproxy-clients : \
@@ -132,49 +132,49 @@ configure-haproxy-clients : \
 configure-keystone-haproxy :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t configure-keystone-haproxy -f 1 --limit headnodes
 
 configure-glance-haproxy :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t configure-glance-haproxy -f 1 --limit headnodes
 
 configure-neutron-haproxy :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t configure-neutron-haproxy -f 1 --limit headnodes
 
 configure-placement-haproxy :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t configure-placement-haproxy -f 1 --limit headnodes
 
 configure-nova-haproxy :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t configure-nova-haproxy -f 1 --limit headnodes
 
 configure-cinder-haproxy :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t configure-cinder-haproxy -f 1 --limit headnodes
 
 configure-heat-haproxy :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t configure-heat-haproxy -f 1 --limit headnodes
 
 configure-watcher-haproxy :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t configure-watcher-haproxy -f 1 --limit headnodes
 
 run-chef-client : \
@@ -188,7 +188,7 @@ run-chef-client : \
 run-chef-client-bootstraps :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/bootstraps.yml \
 		-t chef-client --limit bootstraps
 
 run-chef-client-auxnodes :
@@ -210,13 +210,13 @@ run-chef-client-auxnodes :
 run-chef-client-headnodes :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t chef-client --limit headnodes \
 		-e "step=1"
 
 	@if [ "${headnodes}" -gt 1 ]; then \
 		ansible-playbook -v \
-			-i ${inventory} ${playbooks}/site.yml \
+			-i ${inventory} ${playbooks}/headnodes.yml \
 			-t chef-client --limit headnodes \
 			-e "step=1"; \
 	fi
@@ -224,14 +224,14 @@ run-chef-client-headnodes :
 run-chef-client-worknodes :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/worknodes.yml \
 		-t chef-client --limit worknodes
 
 run-chef-client-storagenodes :
 
 	@if [ "${storagenodes}" -gt 0 ]; then \
 		ansible-playbook -v \
-			-i ${inventory} ${playbooks}/site.yml \
+			-i ${inventory} ${playbooks}/storagenodes.yml \
 			-t chef-client --limit storagenodes; \
 	fi
 
@@ -239,50 +239,50 @@ run-chef-client-stubnodes :
 
 	@if [ "${stubnodes}" -gt 0 ]; then \
 		ansible-playbook -v \
-			-i ${inventory} ${playbooks}/site.yml \
+			-i ${inventory} ${playbooks}/stubnodes.yml \
 			-t chef-client --limit stubnodes; \
 	fi
 
 configure-ceph :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/storageheadnodes.yml \
 		-t configure-ceph --limit storageheadnodes
 
 add-cloud-images :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t add-cloud-images --limit headnodes
 
 enable-compute-service :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t enable-compute-service --limit headnodes
 
 register-compute-nodes :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/headnodes.yml \
 		-t register-compute-nodes --limit headnodes
 
 sync-chef :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/bootstraps.yml \
 		-t sync-chef --limit bootstraps
 
 upload-all :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/bootstraps.yml \
 		-t upload-extra-cookbooks --limit bootstraps
 
 configure-web-server :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/bootstraps.yml \
 		-t web-server --limit bootstraps
 
 configure-host-aggregates :
@@ -328,19 +328,19 @@ print-success-banner :
 generate-chef-environment :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/bootstraps.yml \
 		-t generate-chef-environment --limit bootstraps
 
 adjust-ceph-pool-pgs :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/storageheadnoes.yml \
 		-t adjust-ceph-pool-pgs --limit storageheadnodes
 
 ceph-destroy-osds :
 
 	ansible-playbook -v \
-		-i ${inventory} ${playbooks}/site.yml \
+		-i ${inventory} ${playbooks}/storagenodes.yml \
 		-t ceph-destroy-osds \
 		-e "destroy_osds=$(destroy_osds)" \
 		--limit storagenodes
