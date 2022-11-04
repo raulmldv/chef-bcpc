@@ -103,6 +103,10 @@ default['bcpc']['ceph']['bluestore_fsck_quick_fix_threads'] = 1
 # instances from being able to access their root file system after a crash.
 default['bcpc']['ceph']['rbd_default_features'] = 33
 
+# Disable automated autoscaler changes on new pools by default, but still
+# raise a health warning when PGs are deemed undersized.
+default['bcpc']['ceph']['osd_pool_default_pg_autoscale_mode'] = 'warn'
+
 # ceph mgr,mon,osd service installation flags
 default['bcpc']['ceph']['mgr']['enabled'] = true
 default['bcpc']['ceph']['mon']['enabled'] = true
@@ -113,10 +117,3 @@ default['bcpc']['ceph']['osd']['enabled'] = true
 # https://tracker.ceph.com/issues/50778
 # Mons may become unstable when the progress module is enabled.
 default['bcpc']['ceph']['module']['progress']['enabled'] = false
-
-# ceph mon migration configuration
-
-# If enabled, any monitor addresses for RBD volumes (Cinder attachments,
-# Nova block device mappings, etc.) will be sourced from this list.
-default['bcpc']['ceph']['mon-migration']['enabled'] = false
-default['bcpc']['ceph']['mon-migration']['hosts'] = []

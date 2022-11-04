@@ -18,8 +18,6 @@
 """
 
 from collections import deque
-from configparser import ConfigParser
-from ipaddress import AddressValueError, IPv4Address
 
 from lxml import etree
 from oslo_log import log as logging
@@ -88,7 +86,6 @@ def get_updated_guest_xml(guest, migrate_data, get_volume_config,
     xml_doc = _update_graphics_xml(xml_doc, migrate_data)
     xml_doc = _update_serial_xml(xml_doc, migrate_data)
     xml_doc = _update_volume_xml(xml_doc, migrate_data, get_volume_config)
-    xml_doc = _rewrite_ceph_monitor_hosts(xml_doc)
     xml_doc = _update_perf_events_xml(xml_doc, migrate_data)
     xml_doc = _update_memory_backing_xml(xml_doc, migrate_data)
     if get_vif_config is not None:
@@ -279,40 +276,6 @@ def _update_volume_xml(xml_doc, migrate_data, get_volume_config):
     return xml_doc
 
 
-def _rewrite_ceph_monitor_hosts(xml_doc):
-    """Rewrite monitor addresses for RBD volumes in the domain configuration
-
-    Extract monitor addresses from migration.conf and overwrite whatever
-    monitor addresses associated with RBD volumes for the domain with these
-    ones.
-    """
-    mons = []
-    try:
-        with open('/etc/ceph/migration.conf', 'r') as config_file:
-            config = ConfigParser()
-            config.read_file(config_file)
-            mons = [h.strip() for h in config['global']['mon host'].split(',')]
-            validated_mons = [IPv4Address(host) for host in mons]
-    except (FileNotFoundError, KeyError, ValueError) as exception:
-        LOG.error('ceph-mon-migration: {0}'.format(str(exception)))
-        return xml_doc
-
-    for disk in xml_doc.findall('./devices/disk/source'):
-        if disk.get('protocol') != 'rbd':
-            continue
-
-        # Wax all the existing host pairs...
-        for host in disk.findall('host'):
-            disk.remove(host)
-
-        # ...and slot in the new mons
-        for mon_host in mons:
-            host = etree.SubElement(disk, 'host')
-            host.set('name', mon_host)
-            host.set('port', '6789')
-    return xml_doc
-
-
 def _update_perf_events_xml(xml_doc, migrate_data):
     """Update XML by the supported events of destination host."""
 
@@ -449,13 +412,13 @@ def _update_vif_xml(xml_doc, migrate_data, get_vif_config):
             interface_dev.set(attr_name, attr_value)
         # Insert sub-elements.
         for index, dest_interface_subelem in enumerate(dest_interface_elem):
-            # NOTE(mnaser): If we don't have an MTU, don't define one, else
-            #               the live migration will crash.
-            if dest_interface_subelem.tag == 'mtu' and mtu is None:
+            # Ensure that the MTU does not change during a live-migration.
+            if dest_interface_subelem.tag == 'mtu':
                 continue
             interface_dev.insert(index, dest_interface_subelem)
-        # And finally re-insert the hw address.
+        # And finally re-insert the hw address and the original MTU.
         interface_dev.insert(index + 1, address)
+        interface_dev.insert(index + 2, mtu)
 
     return xml_doc
 
