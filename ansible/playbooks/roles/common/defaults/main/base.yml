@@ -3,7 +3,7 @@
 ###############################################################################
 
 # the root of the source tree
-root_dir: "{{ inventory_dir | dirname }}"
+root_dir: "{{ inventory_dir | dirname | dirname }}"
 
 # username and password used to access bare metal machines
 initial_ssh_user: ubuntu

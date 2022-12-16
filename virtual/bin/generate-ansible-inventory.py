@@ -104,17 +104,20 @@ def get_inventory_data(ssh_config, nodes):
         }
     }
 
-    cloud = {'children': {}}
-
+    cloud = {'children': {'bve':{'children':{}}}}
+    bve = cloud['children']['bve']
+    #import pdb; pdb.set_trace()
     for group in [n['group'] for n in nodes]:
-
+        
         hosts = get_group_hosts(group, ssh_config, nodes)
 
         if len(hosts):
-            cloud['children'].update({group: {'hosts': hosts}})
+            bve['children'].update({group: {'hosts': hosts}})
 
-        if len(cloud['children']):
-            inventory['all']['children'].update({'cloud': cloud})
+        if len(bve['children']):
+            cloud['children'].update({'bve': bve})
+
+    inventory['all']['children'].update({'cloud': cloud})
 
     return inventory
 

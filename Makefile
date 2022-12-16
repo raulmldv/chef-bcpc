@@ -1,7 +1,7 @@
 # -*- mode: Makefile -*-
 # vim:list:listchars=tab\:>-:
 
-export inventory = ansible/inventory.yml
+export inventory = ansible/inventory/bve.yml
 export playbooks = ansible/playbooks
 export ANSIBLE_CONFIG = ansible/ansible.cfg
 

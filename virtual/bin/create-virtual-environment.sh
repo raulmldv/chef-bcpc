@@ -64,4 +64,4 @@ fi
 # generate virtual cloud ansible inventory files
 "${virtual_dir}/bin/generate-ansible-inventory.py" \
     --ssh-config "${ssh_config_file}" \
-    --topology-config "${topology_file}" > "${ansible_dir}/inventory.yml"
+    --topology-config "${topology_file}" > "${ansible_dir}/inventory/bve.yml"
