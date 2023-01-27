@@ -16,7 +16,7 @@ haproxy_ssl: "{{
 
 # Installation-related configuration options
 haproxy_repo_enabled: false
-haproxy_repo_public_url: ppa:vbernat/haproxy-2.4
+haproxy_repo_public_url: ppa:vbernat/haproxy-2.6
 haproxy_repo_key_data: files/haproxy.key
 haproxy_dependencies:
   - name: haproxy
