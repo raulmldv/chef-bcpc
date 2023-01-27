@@ -14,6 +14,9 @@ admin socket mode = 0775
 mon osd down out interval = <%= node['bcpc']['ceph']['mon_osd_down_out_interval'] %>
 mon max pg per osd = <%= node['bcpc']['ceph']['mon_max_pg_per_osd'] %>
 
+# Starting in Pacific, this override is needed to create pools of size 1
+mon allow pool size one = true
+
 # settings to throttle OSD scrubbing visible to both mgrs and OSDs
 osd deep scrub interval = <%= @node['bcpc']['ceph']['osd_deep_scrub_interval'] %>
 osd scrub max interval = <%= @node['bcpc']['ceph']['osd_scrub_max_interval'] %>
