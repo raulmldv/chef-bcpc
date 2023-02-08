@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-# Copyright 2022, Bloomberg Finance L.P.
+# Copyright 2023, Bloomberg Finance L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,11 +27,8 @@ function main {
         ! -path \
             "./chef/cookbooks/bcpc/files/default/neutron/external_net_db.py" \
         ! -path "./chef/cookbooks/bcpc/files/default/neutron/model_query.py" \
-        ! -path "./chef/cookbooks/bcpc/files/default/nova/api.py" \
-        ! -path "./chef/cookbooks/bcpc/files/default/nova/hardware.py" \
-        ! -path "./chef/cookbooks/bcpc/files/default/nova/hw.py" \
+        ! -path "./chef/cookbooks/bcpc/files/default/nova/guest.py" \
         ! -path "./chef/cookbooks/bcpc/files/default/nova/migration.py" \
-        ! -path "./chef/cookbooks/bcpc/files/default/nova/vif.py" \
         -print0 | xargs -0 -t flake8
     ansible-lint -x var-naming ansible/
     cookstyle --version && cookstyle --fail-level A
