@@ -284,8 +284,8 @@ if platform?('ubuntu')
   end
 end
 
-cookbook_file "#{dist_packages}/networking_calico/common/config.py" do
-  source 'calico/config.py'
+cookbook_file "#{dist_packages}/networking_calico/plugins/ml2/drivers/calico/mech_calico.py" do
+  source 'calico/mech_calico.py'
   notifies :restart, 'service[neutron-server]', :immediately
 end
 
