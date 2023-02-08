@@ -104,11 +104,9 @@ def get_hooks(model):
 
 def _prep_query_with_hooks(context, model, field):
     """Prepares a SQLalchemy query for use with query_with_hooks.
-
     :param context: The context to use for the DB session.
     :param model: The model to query.
     :param field: The column.
-    
     :returns: The query with hooks applied to it.
     """
     if field:
@@ -121,8 +119,7 @@ def _prep_query_with_hooks(context, model, field):
     return context.session.query(model)
 
 
-def query_with_hooks(context, model, field=None, hoisted_filters=None, 
-                     lazy_fields=None):
+def query_with_hooks(context, model, field=None, hoisted_filters=None, lazy_fields=None):
     """Query with hooks using the said context and model.
 
     :param context: The context to use for the DB session.
@@ -145,8 +142,8 @@ def query_with_hooks(context, model, field=None, hoisted_filters=None,
             rbac_query_filter = (
                 (rbac_model.action.in_(
                     [constants.ACCESS_SHARED, constants.ACCESS_READONLY]) &
-                 ((rbac_model.target_tenant == context.tenant_id) |
-                  (rbac_model.target_tenant == '*'))))
+                 ((rbac_model.target_project == context.tenant_id) |
+                  (rbac_model.target_project == '*'))))
         elif hasattr(model, 'shared'):
             query_filter = ((model.tenant_id == context.tenant_id) |
                             (model.shared == sql.true()))
@@ -161,7 +158,7 @@ def query_with_hooks(context, model, field=None, hoisted_filters=None,
         filter_hook = helpers.resolve_ref(hook.get('filter'))
         if filter_hook:
             query_filter = filter_hook(context, model, query_filter)
-
+        
         filter_hook = helpers.resolve_ref(hook.get('rbac_filter'))
         if filter_hook:
             rbac_query_filter = filter_hook(context, model, rbac_query_filter)
@@ -236,7 +233,6 @@ def query_with_hooks(context, model, field=None, hoisted_filters=None,
     if lazy_fields:
         for field in lazy_fields:
             query = query.options(lazyload(field))
-
     return query
 
 
@@ -323,9 +319,8 @@ def get_collection_query(context, model, filters=None, sorts=None, limit=None,
     :param lazy_fields: list of fields for lazy loading
     :returns: A paginated query for the said model.
     """
-    collection = query_with_hooks(context, model, field=field, 
-                                  hoisted_filters=filters, 
-                                  lazy_fields=lazy_fields)
+    collection = query_with_hooks(context, model, field=field,
+                                  hoisted_filters=filters, lazy_fields=lazy_fields)
     collection = apply_filters(collection, model, filters, context)
     if sorts:
         sort_keys = db_utils.get_and_validate_sort_keys(sorts, model)
@@ -394,12 +389,16 @@ def get_values(context, model, field, filters=None):
     return [c[0] for c in query]
 
 
-def get_collection_count(context, model, filters=None):
+def get_collection_count(context, model, filters=None, query_field=None):
     """Get the count for a specific collection.
 
     :param context: The context to use for the DB session.
     :param model: The model for the query.
     :param filters: The filters to apply.
+    :param query_field: Column, in string format, from the "model"; the query
+                        will return only this parameter instead of the full
+                        model columns.
     :returns: The number of objects for said model with filters applied.
     """
-    return get_collection_query(context, model, filters).count()
+    return get_collection_query(context, model, filters=filters,
+                                field=query_field).count()
