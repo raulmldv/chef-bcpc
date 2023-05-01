@@ -81,7 +81,7 @@
 
 # uncomment if you wish to have additional licensed aggregates
 
-#licenses:
+#license_traits:
 #  enabled: false
 #  traits:
 #    - name: unlicensed
@@ -105,10 +105,13 @@
 #additional_cloud_images:
 #  - file_asset: ubuntu-18.04
 #    type: qcow2
+#    license_name: unlicensed
 #  - file_asset: ubuntu-16.04
 #    type: qcow2
+#    license_name: unlicensed
 #  - file_asset: centos-7
 #    type: qcow2
+#    license_name: unlicensed
 #    compression: xz
 
 ###############################################################################
