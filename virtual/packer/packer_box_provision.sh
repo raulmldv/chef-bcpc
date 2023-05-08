@@ -80,7 +80,7 @@ function configure_linux_kernel {
         apt-get install -y "linux-image-${kernel_version}" \
             "linux-tools-${kernel_version}"
     fi
-
+	return
     # Add serial console and disable IPv6
     eval "$(grep ^GRUB_CMDLINE_LINUX= /etc/default/grub)"
     NEW_CMDLINE="${GRUB_CMDLINE_LINUX} console=ttyS0,115200 ipv6.disable=1"
@@ -119,10 +119,10 @@ function cleanup_image {
     export HISTSIZE=0
 
     # remove VirtualBox Guest Additions when libvirt is in use
-    if [ "${BCC_BASE_BOX_PROVIDER}" == "libvirt" ]; then
-        systemctl disable vboxadd
-        systemctl disable vboxadd-service
-        systemctl reset-failed
+    if [ "${BCC_BASE_BOX_PROVIDER}" != "virtualbox" ]; then
+        systemctl disable vboxadd || true
+        systemctl disable vboxadd-service || true
+        systemctl reset-failed || true
         rm -rf /opt/VBoxGuestAdditions-*
     fi
 }
