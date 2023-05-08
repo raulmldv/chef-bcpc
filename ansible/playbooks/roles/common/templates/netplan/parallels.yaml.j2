@@ -2,5 +2,6 @@ network:
   version: 2
   ethernets:
     eth0:
-      addresses:
-        - 10.0.2.15/24
+      dhcp4: true
+      dhcp4-overrides:
+        use-routes: false
