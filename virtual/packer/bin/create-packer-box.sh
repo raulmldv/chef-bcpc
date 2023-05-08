@@ -16,6 +16,25 @@
 
 set -xe
 
+function vagrant_box_add {
+    if [ "$BASE_BOX_PROVIDER" == "parallels" ]; then
+        printf "Checking for vagrant parallels plugins"
+        parallels=$(vagrant plugin list | grep parallels || true)
+        if [ -z "$parallels" ]; then
+			printf "Please install vagrant parallels plugin\n"
+			exit 1
+		fi
+    fi
+    box="$1"
+    version="$2"
+	provider="$3"
+    vagrant box add \
+            --force \
+            --insecure "${box}" \
+            --box-version "${version}" \
+            --provider "${provider}"
+}
+
 packer_dir=$(dirname "$(dirname "$0")")
 os_config_variables="${packer_dir}/config/variables.json"
 
@@ -42,12 +61,12 @@ for OS_RELEASE in $(jq -r '. | keys[]' "${os_config_variables}"); do
         || true
     )
     if [ -z "$base_box_exists" ]; then
-        vagrant box add \
-            --force \
-            --insecure "$BASE_BOX" \
-            --box-version "$BASE_BOX_VERSION" \
-            --provider virtualbox;
-        if [ "$BASE_BOX_PROVIDER" == "libvirt" ]; then
+		# only libvirt requires add and mutate, for the others it's
+		# the straighforward way
+        if [ "$BASE_BOX_PROVIDER" != "libvirt" ]; then
+			vagrant_box_add "$BASE_BOX" "$BASE_BOX_VERSION" "$BASE_BOX_PROVIDER"
+		else
+			vagrant_box_add "$BASE_BOX" "$BASE_BOX_VERSION" "virtualbox"
             printf "Checking for vagrant mutate"
             mutate=$(vagrant plugin list | grep mutate)
             if [ -z "$mutate" ]; then
