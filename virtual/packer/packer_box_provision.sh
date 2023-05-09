@@ -45,18 +45,18 @@ function configure_apt {
 
     if [ -n "${http_proxy_url}" ]; then
         echo 'Acquire::http::Proxy "'"${http_proxy_url}"'";' \
-            > /etc/apt/apt.conf.d/proxy
+             > /etc/apt/apt.conf.d/proxy
     fi
     if [ -n "${https_proxy_url}" ]; then
         echo 'Acquire::https::Proxy "'"${https_proxy_url}"'";' \
-            >> /etc/apt/apt.conf.d/proxy
+             >> /etc/apt/apt.conf.d/proxy
     fi
 
     echo 'APT::Install-Recommends "false";' \
-        > /etc/apt/apt.conf.d/99no-install-recommends
+         > /etc/apt/apt.conf.d/99no-install-recommends
 
     if [ -n "${apt_url}" ]; then
-cat << EOF > /etc/apt/sources.list
+		cat << EOF > /etc/apt/sources.list
 deb ${apt_url} ${distribution_codename} main restricted universe multiverse
 deb ${apt_url} ${distribution_codename}-backports main restricted universe multiverse
 deb ${apt_url} ${distribution_codename}-security main restricted universe multiverse
@@ -70,17 +70,17 @@ EOF
 # Based on Ansible's dist upgrade logic for apt(8)
 function upgrade_system {
     apt-get -y \
-        -o 'Dpkg::Options::=--force-confdef' \
-        -o 'Dpkg::Options::=--force-confold' \
-    dist-upgrade
+			-o 'Dpkg::Options::=--force-confdef' \
+			-o 'Dpkg::Options::=--force-confold' \
+			dist-upgrade
 }
 
 function configure_linux_kernel {
     if [ -n "${kernel_version}" ]; then
         apt-get install -y "linux-image-${kernel_version}" \
-            "linux-tools-${kernel_version}"
+				"linux-tools-${kernel_version}"
     fi
-	return
+    return
     # Add serial console and disable IPv6
     eval "$(grep ^GRUB_CMDLINE_LINUX= /etc/default/grub)"
     NEW_CMDLINE="${GRUB_CMDLINE_LINUX} console=ttyS0,115200 ipv6.disable=1"
@@ -132,7 +132,7 @@ function download_debs {
     apt-get update
     if [ "${distribution_codename}" == "bionic" ]; then
         apt-get install --download-only -y -t bionic-backports \
-            bird2 init-system-helpers
+				bird2 init-system-helpers
     else
         apt-get install --download-only -y bird2
     fi
