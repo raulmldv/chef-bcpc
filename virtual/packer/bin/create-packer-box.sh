@@ -51,8 +51,8 @@ for OS_RELEASE in $(jq -r '. | keys[]' "${os_config_variables}"); do
     VAGRANT_CACERT=$(jq -r '.vagrant_cacert' "${config_variables}")
     PACKER_BOX_NAME=$(jq -r '.output_packer_box_name' "${config_variables}")
     if [ "$BASE_BOX" == "null" ] \
-           || [ "$BASE_BOX_VERSION" == "null" ] \
-           || [ "$PACKER_BOX_NAME" == "null" ]; then
+            || [ "$BASE_BOX_VERSION" == "null" ] \
+            || [ "$PACKER_BOX_NAME" == "null" ]; then
         printf "Variable(s) in %s are undefined.\n" "$config_variables"
         exit 1
     fi
@@ -60,16 +60,20 @@ for OS_RELEASE in $(jq -r '. | keys[]' "${os_config_variables}"); do
         vagrant box list --machine-readable |
             grep -i "${BASE_BOX}.*${BASE_BOX_PROVIDER}.*${BASE_BOX_VERSION}" \
                 || true
-                   )
+                    )
     if [ -z "$base_box_exists" ]; then
         # only libvirt requires add and mutate, for the others it's
         # the straighforward way
         if [ "$BASE_BOX_PROVIDER" != "libvirt" ]; then
             CURL_CA_BUNDLE=${VAGRANT_CACERT:+$VAGRANT_CACERT} vagrant_box_add \
-                          "$BASE_BOX" "$BASE_BOX_VERSION" "$BASE_BOX_PROVIDER"
+                            "$BASE_BOX" \
+                            "$BASE_BOX_VERSION" \
+                            "$BASE_BOX_PROVIDER"
         else
             CURL_CA_BUNDLE=${VAGRANT_CACERT:+$VAGRANT_CACERT} vagrant_box_add \
-                          "$BASE_BOX" "$BASE_BOX_VERSION" "virtualbox"
+                            "$BASE_BOX" \
+                            "$BASE_BOX_VERSION" \
+                            "virtualbox"
             printf "Checking for vagrant mutate"
             mutate=$(vagrant plugin list | grep mutate)
             if [ -z "$mutate" ]; then
@@ -105,8 +109,8 @@ for OS_RELEASE in $(jq -r '. | keys[]' "${os_config_variables}"); do
     required_packer_ver="1.4.0"
     lower_packer_ver=$(printf '%s\n' "$required_packer_ver" \
                               "$current_packer_ver" \
-                           | sort -V \
-                           | head -n1)
+                            | sort -V \
+                            | head -n1)
     if [ "$lower_packer_ver" = "$required_packer_ver" ]; then
         VAGRANT_VAGRANTFILE=Vagrantfile packer build \
                                         --force \
