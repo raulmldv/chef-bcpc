@@ -65,9 +65,11 @@ for OS_RELEASE in $(jq -r '. | keys[]' "${os_config_variables}"); do
         # only libvirt requires add and mutate, for the others it's
         # the straighforward way
         if [ "$BASE_BOX_PROVIDER" != "libvirt" ]; then
-            CURL_CA_BUNDLE=${VAGRANT_CACERT:+$VAGRANT_CACERT} vagrant_box_add "$BASE_BOX" "$BASE_BOX_VERSION" "$BASE_BOX_PROVIDER"
+            CURL_CA_BUNDLE=${VAGRANT_CACERT:+$VAGRANT_CACERT} vagrant_box_add \
+                          "$BASE_BOX" "$BASE_BOX_VERSION" "$BASE_BOX_PROVIDER"
         else
-            CURL_CA_BUNDLE=${VAGRANT_CACERT:+$VAGRANT_CACERT} vagrant_box_add "$BASE_BOX" "$BASE_BOX_VERSION" "virtualbox"
+            CURL_CA_BUNDLE=${VAGRANT_CACERT:+$VAGRANT_CACERT} vagrant_box_add \
+                          "$BASE_BOX" "$BASE_BOX_VERSION" "virtualbox"
             printf "Checking for vagrant mutate"
             mutate=$(vagrant plugin list | grep mutate)
             if [ -z "$mutate" ]; then
