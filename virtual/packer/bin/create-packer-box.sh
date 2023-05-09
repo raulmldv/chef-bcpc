@@ -48,6 +48,7 @@ for OS_RELEASE in $(jq -r '. | keys[]' "${os_config_variables}"); do
     BASE_BOX=$(jq -r '.base_box' "${config_variables}")
     BASE_BOX_VERSION=$(jq -r '.base_box_version' "${config_variables}")
     BASE_BOX_PROVIDER=$(jq -r '.base_box_provider' "${config_variables}")
+    VAGRANT_CACERT=$(jq -r '.vagrant_cacert' "${config_variables}")
     PACKER_BOX_NAME=$(jq -r '.output_packer_box_name' "${config_variables}")
     if [ "$BASE_BOX" == "null" ] \
         || [ "$BASE_BOX_VERSION" == "null" ] \
@@ -64,22 +65,22 @@ for OS_RELEASE in $(jq -r '. | keys[]' "${os_config_variables}"); do
 		# only libvirt requires add and mutate, for the others it's
 		# the straighforward way
         if [ "$BASE_BOX_PROVIDER" != "libvirt" ]; then
-			vagrant_box_add "$BASE_BOX" "$BASE_BOX_VERSION" "$BASE_BOX_PROVIDER"
+			CURL_CA_BUNDLE=${VAGRANT_CACERT:+$VAGRANT_CACERT} vagrant_box_add "$BASE_BOX" "$BASE_BOX_VERSION" "$BASE_BOX_PROVIDER"
 		else
-			vagrant_box_add "$BASE_BOX" "$BASE_BOX_VERSION" "virtualbox"
-            printf "Checking for vagrant mutate"
-            mutate=$(vagrant plugin list | grep mutate)
-            if [ -z "$mutate" ]; then
-                printf "Vagrant mutate not found. "
-                printf "Install vagrant-mutate to allow base conversion\n"
-                exit 1
-            else
-                printf "Vagrant mutate found, mutating VirtualBox version\n"
-                vagrant mutate "${BASE_BOX}" --input-provider virtualbox \
-                    libvirt
-            fi
-        fi
-    fi
+			CURL_CA_BUNDLE=${VAGRANT_CACERT:+$VAGRANT_CACERT} vagrant_box_add "$BASE_BOX" "$BASE_BOX_VERSION" "virtualbox"
+			printf "Checking for vagrant mutate"
+			mutate=$(vagrant plugin list | grep mutate)
+			if [ -z "$mutate" ]; then
+				printf "Vagrant mutate not found. "
+				printf "Install vagrant-mutate to allow base conversion\n"
+				exit 1
+			else
+				printf "Vagrant mutate found, mutating VirtualBox version\n"
+				vagrant mutate "${BASE_BOX}" --input-provider virtualbox \
+						libvirt
+			fi
+
+		fi
 
     # prevent vagrant-libvirt from failing if there's scrapnel lying around
     if [ "$VAGRANT_DEFAULT_PROVIDER" == "libvirt" ]; then
