@@ -81,7 +81,7 @@ for OS_RELEASE in $(jq -r '. | keys[]' "${os_config_variables}"); do
 			fi
 
 		fi
-
+	fi
     # prevent vagrant-libvirt from failing if there's scrapnel lying around
     if [ "$VAGRANT_DEFAULT_PROVIDER" == "libvirt" ]; then
         virsh destroy output-vagrant_source || true
