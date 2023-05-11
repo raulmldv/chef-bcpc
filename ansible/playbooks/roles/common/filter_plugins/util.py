@@ -1,5 +1,5 @@
 """
-Copyright 2022, Bloomberg Finance L.P.
+Copyright 2023, Bloomberg Finance L.P.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -157,6 +157,21 @@ def optimal_nvme_lbaf(a, *args, **kw):
     return ordered_lbafs[0]['index']
 
 
+def is_host_worknode(host_variables):
+    """Check if host is worknode chef role.
+
+    Parameters:
+    host_variables (dict): dict of hostvars[host]
+
+    Returns:
+    is_worknode (bool): true if host is worknode otherwise false
+    """
+    for role in host_variables['run_list']:
+        if role == "role[worknode]":
+            return True
+    return False
+
+
 class FilterModule(object):
 
     filter_map = {
@@ -167,6 +182,7 @@ class FilterModule(object):
         'osadmin': osadmin,
         'etcdnode_to_cnames': etcdnode_to_cnames,
         'optimal_nvme_lbaf': optimal_nvme_lbaf,
+        'host_worknode': is_host_worknode,
     }
 
     def filters(self):

@@ -313,7 +313,10 @@ hardware_io_scheduler: mq-deadline
 # Select kernel NVMe multipath support.
 # Disabling addresses the issue with controller vs. disk/device naming issues,
 # providing consistent, deterministic device naming conventions.
-hardware_nvme_multipath: false
+general_nvme_multipath: false
+
+# Compute node (worknode) specific NVMe multipath support
+compute_nvme_multipath: true
 
 # Select whether or not to load newer CPU microcode mitigations at runtime
 # when possible (and when it is newer than what the BIOS firmware provides).
