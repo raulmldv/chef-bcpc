@@ -14,10 +14,12 @@ my_ip = <%= node['service_ip'] %>
 enable_new_services = false
 cpu_allocation_ratio = <%= node['bcpc']['nova']['cpu_allocation_ratio'] %>
 force_config_drive = true
+heal_instance_info_cache_interval = <%= node['bcpc']['nova']['heal_instance_info_cache_interval'] %>
 ram_allocation_ratio = <%= node['bcpc']['nova']['ram_allocation_ratio'] %>
 reserved_host_memory_mb = <%= node['bcpc']['nova']['reserved_host_memory_mb'] %>
 resume_guests_state_on_host_boot = <%= node['bcpc']['nova']['resume_guests_state_on_host_boot'] %>
 max_concurrent_builds = <%= node['bcpc']['nova']['max_concurrent_builds'] %>
+scheduler_instance_sync_interval = <%= node['bcpc']['nova']['scheduler_instance_sync_interval'] %>
 sync_power_state_interval = <%= node['bcpc']['nova']['sync_power_state_interval'] %>
 state_path = /var/lib/nova
 
