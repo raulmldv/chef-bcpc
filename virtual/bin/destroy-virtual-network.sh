@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2019, Bloomberg Finance L.P.
+# Copyright 2023, Bloomberg Finance L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ root_dir=$(git rev-parse --show-toplevel)
 virtual_dir="${root_dir}/virtual"
 network_dir="${virtual_dir}/network"
 
-if [ "${VAGRANT_DEFAULT_PROVIDER}" == "libvirt" ] ; then
-    export VAGRANT_VAGRANTFILE=Vagrantfile.libvirt
+if [ "${VAGRANT_DEFAULT_PROVIDER}" == "virtualbox" ] ; then
+    export VAGRANT_VAGRANTFILE=Vagrantfile.virtualbox
 fi
 
 (cd "${network_dir}"; vagrant destroy -f)

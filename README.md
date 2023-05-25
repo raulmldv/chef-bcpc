@@ -1,13 +1,17 @@
 # chef-bcpc
 
-chef-bcpc is a set of [Chef](https://github.com/opscode/chef) cookbooks that
-build a highly-available [OpenStack](http://www.openstack.org/) cloud.
+chef-bcpc is a set of [Chef](https://www.chef.io/) cookbooks
+and [Ansible](https://www.ansible.com/) playbooks that build a
+highly-available [OpenStack](http://www.openstack.org/) cloud.
 
-The cloud consists of head nodes (OpenStack controller services, Ceph Mons,
-etc.) and work nodes (hypervisors).
+The cloud consists of a variety of head nodes (OpenStack controller
+services, Ceph Mons/Mgrs, etcd, RabbitMQ), work nodes (hypervisors)
+and storage nodes (Ceph OSDs).
 
-Each head node runs all of the core services in a highly-available manner. Each
-work node runs the relevant services (nova-compute, Ceph OSDs, etc.).
+Each type of head node runs its core services in a highly-available
+manner and the roles of these nodes can be converged into a smaller set
+of hosts. In addition, the roles of work nodes and storage nodes can
+also be converged together.
 
 
 ## Getting Started
@@ -45,15 +49,16 @@ list of tested topologies and hardware configurations please see
 [virtual/README](virtual/README.md).
 * Set the variables in `virtual/vagrantbox.json`. The variable `vagrant_box` specifies the
 Vagrant box we use to build the virtual environment, and `vagrant_box_version` specifies
-the version of the Vagrant box.
+the version of the Vagrant box. These variables are specified per Ansible inventory group
+of hosts, and must have a "default" group as is done in the default `vagrantbox.json`.
 * If one would like to build a pre-provisioned custom Packer box and use it as the base box
 to create the virtual environment, the steps below should be followed:
   * Create `virtual/packer/config/variables.json` and set the variables. Depends on the
 virtual machine provider, an example can be found at
-[variables.json.virtualbox.example](virtual/packer/config/variables.json.virtualbox.example)
-or [variables.json.libvirt.example](virtual/packer/config/variables.json.libvirt.example).
+[variables.json.libvirt.example](virtual/packer/config/variables.json.libvirt.example)
+or [variables.json.virtualbox.example](virtual/packer/config/variables.json.virtualbox.example).
 This step is essential for building a Packer box that's used as a base box image for building
-the virtual environment. The variables `bcc_apt_key_url` and `bcc_apt_url` are optional,
+the virtual environment. The variables `bcc_apt_key_url`, `bcc_apt_url` and `vagrant_cacert` are optional,
 while others must be set. The variable `kernel_version` specifies the Linux kernel version we'd
 like to have for the Packer box. While `base_box`, `base_box_version`, and `base_box_provider`
 specify an official Vagrant box we'd like to use as a baseline for the Packer box, upon which
@@ -61,8 +66,8 @@ we make further modifications. Last but not least, the variable `output_packer_b
 the name we'd like to use when adding the output Packer box to Vagrant.
   * Alternatively, if one has S3 set up and would like to download/upload a packer box, `virtual/packer/config/s3.json`
 can be set up to leverage a pre-built packer box. An example can be found at
-[s3.json.virtualbox.example](virtual/packer/config/s3.json.virtualbox.example)
-or [s3.json.libvirt.example](virtual/packer/config/s3.json.libvirt.example). Run make target `make download-packer-box`
+[s3.json.libvirt.example](virtual/packer/config/s3.json.libvirt.example)
+or [s3.json.virtualbox.example](virtual/packer/config/s3.json.virtualbox.example). Run make target `make download-packer-box`
 and `make upload-packer-box` to download/upload a packer box.
   * Run make target `make create-packer-box`. This will create a Packer box and add it to Vagrant
 with the name specified by `output_packer_box_name`.
@@ -79,7 +84,9 @@ run `make destroy-packer-box` to clean up the Packer box.
 [topology.yml](virtual/topology/topology.yml) to files named
 `hardware.overrides.yml` and `topology.overrides.yml`, respectively, and make
 changes to them instead.
-* If a proxy server is required for internet access, set the variables TBD
+* If a proxy server is required for internet access, set the variables
+`bcc_http_proxy_url` and `bcc_https_proxy_url` respectively in
+`virtual/packer/config/variables.json`.
 * If additional CA certificates are required (e.g. for a proxy), set the variables TBD
 * From the root of the chef-bcpc git repository run the following command:
 
@@ -101,28 +108,26 @@ pip install 'pip>=19.1.1' wheel
 pip install PyYaml ansible netaddr pyOpenSSL 'cryptography>=3.0,<38.0.0'
 ```
 
-To create a VirtualBox build (the default):
-
-```shell
-vagrant plugin install vagrant-vbguest
-make generate-chef-databags
-make create-packer-box
-make create all
-```
-
-To create a libvirt build, first install the following packages and plugins:
+To create a libvirt build (the default), first install the following packages
+and plugins:
 
 ```shell
 sudo apt-get install build-essential dnsmasq libguestfs-tools libvirt-dev pkg-config qemu-utils
 vagrant plugin install vagrant-libvirt vagrant-mutate
-vagrant box add bento/ubuntu-20.04 --box-version 202206.03.0 --provider virtualbox
-vagrant mutate bento/ubuntu-20.04 libvirt
 ```
 
-After the base Bento box has been added for Vagrant, use the following commands to create a virtual build:
+Alternatively, to create a VirtualBox build, install the following plugin and
+set the following environment variables:
 
 ```shell
-export VAGRANT_DEFAULT_PROVIDER=libvirt VAGRANT_VAGRANTFILE=Vagrantfile.libvirt
+vagrant plugin install vagrant-vbguest
+export VAGRANT_DEFAULT_PROVIDER=virtualbox
+export VAGRANT_VAGRANTFILE=Vagrantfile.virtualbox
+```
+
+Use the following commands to create a virtual build:
+
+```shell
 make generate-chef-databags
 make create-packer-box
 make create all
@@ -135,7 +140,7 @@ make destroy-packer-box
 ```
 
 
-You may also want to change cpu model from `qemu64` to `kvm64` in
+You may also want to change CPU model from `qemu64` to `kvm64` in
 `ansible/playbooks/roles/common/defaults/main/chef.yml`
 
 ```
@@ -149,19 +154,19 @@ chef_environment:
            cpu_model: kvm64
 ```
 
-To revert to the default VirtualBox provider, as far as the build is
-concerned, you can just remove the mutated libvirt box and then unset
-VAGRANT_DEFAULT_PROVIDER and VAGRANT_VAGRANTFILE environment
-variables. However since you must also make sure that the different
-hypervisors don't both try to control the CPU virtualisation
-facilities, it is best to remove the mutated box and then simply
-reboot your development host (assuming no scripts reset the VAGRANT
-variables).
+To switch from the default libvirt provider to the virtualbox provider, as
+far as the build is concerned, you can just remove the mutated libvirt
+box and then set VAGRANT_DEFAULT_PROVIDER and VAGRANT_VAGRANTFILE
+environment variables as described above. However since you must also
+make sure that the different hypervisors don't both try to control the
+CPU virtualization facilities, it is best to remove the mutated box and
+then simply reboot your development host.
 
 This would look something like this:
 
 ```shell
 $ rm -rf ~/.vagrant.d/boxes/bento-VAGRANTSLASH-ubuntu-20.04/202206.03.0/libvirt/
+$ rm -rf ~/.vagrant.d/boxes/bento-VAGRANTSLASH-ubuntu-22.04/202206.13.0/libvirt/
 $ sudo reboot
 ```
 
@@ -181,7 +186,7 @@ opportunities at the [Bloomberg L.P. careers site](https://careers.bloomberg.com
 ## License
 
 This project is licensed under the Apache 2.0 License - see the
-[LICENSE.txt](LICENSE.txt) file for details.
+[LICENSE](LICENSE) file for details.
 
 
 ## Built With
@@ -193,7 +198,8 @@ chef-bcpc is built with the following open source software:
  - [BIRD](https://bird.network.cz)
  - [Calico](https://www.projectcalico.org)
  - [Ceph](http://ceph.com/)
- - [Chef](http://www.opscode.com/chef/)
+ - [Chef Infra Server](https://www.chef.io/)
+ - [Cinc Client](https://cinc.sh/)
  - [Consul](https://www.consul.io)
  - [etcd](https://etcd.io)
  - [HAProxy](http://haproxy.1wt.eu/)
