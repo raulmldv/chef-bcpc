@@ -1158,7 +1158,7 @@ def get_mem_encryption_constraint(
     cannot be called since it relies on being run from the compute
     node in order to retrieve CONF.libvirt.hw_machine_type.
 
-    :param instance_type: Flavor object
+    :param flavor: Flavor object
     :param image: an ImageMeta object
     :param machine_type: a string representing the machine type (optional)
     :raises: nova.exception.FlavorImageConflict
@@ -1192,7 +1192,7 @@ def get_mem_encryption_constraint(
                           flavor.name)
     if image_mem_enc:
         requesters.append("hw_mem_encryption property of image %s" %
-                          image_meta.name)
+                          image_meta.id)
 
     _check_mem_encryption_uses_uefi_image(requesters, image_meta)
     _check_mem_encryption_machine_type(image_meta, machine_type)
@@ -1784,6 +1784,55 @@ def get_pci_numa_policy_constraint(
     return policy
 
 
+def get_vif_multiqueue_constraint(
+    flavor: 'objects.Flavor',
+    image_meta: 'objects.ImageMeta',
+) -> bool:
+    """Validate and return the requested VIF multiqueue configuration.
+
+    :param flavor: ``nova.objects.Flavor`` instance
+    :param image_meta: ``nova.objects.ImageMeta`` instance
+    :raises: nova.exception.FlavorImageConflict if a value is specified in both
+        the flavor and the image, but the values do not match
+    :raises: nova.exception.Invalid if a value or combination of values is
+        invalid
+    :returns: True if the multiqueue must be enabled, else False.
+    """
+    if flavor.vcpus < 2:
+        return False
+
+    flavor_value_str, image_value = _get_flavor_image_meta(
+        'vif_multiqueue_enabled', flavor, image_meta)
+
+    flavor_value = None
+    if flavor_value_str is not None:
+        flavor_value = strutils.bool_from_string(flavor_value_str)
+
+    if (
+        image_value is not None and
+        flavor_value is not None and
+        image_value != flavor_value
+    ):
+        msg = _(
+            "Flavor %(flavor_name)s has %(prefix)s:%(key)s extra spec "
+            "explicitly set to %(flavor_val)s, conflicting with image "
+            "%(image_name)s which has %(prefix)s_%(key)s explicitly set to "
+            "%(image_val)s."
+        )
+        raise exception.FlavorImageConflict(
+            msg % {
+                'prefix': 'hw',
+                'key': 'vif_multiqueue_enabled',
+                'flavor_name': flavor.name,
+                'flavor_val': flavor_value,
+                'image_name': image_meta.name,
+                'image_val': image_value,
+            }
+        )
+
+    return flavor_value or image_value or False
+
+
 def get_vtpm_constraint(
     flavor: 'objects.Flavor',
     image_meta: 'objects.ImageMeta',
@@ -1853,52 +1902,6 @@ def get_secure_boot_constraint(
         })
 
     return policy
-
-
-def get_vif_multiqueue_constraint(flavor, image_meta):
-    """Validate and return the requested VIF multiqueue configuration.
-
-    :param flavor: ``nova.objects.Flavor`` instance
-    :param image_meta: ``nova.objects.ImageMeta`` instance
-    :raises: nova.exception.FlavorImageConflict if a value is specified in both
-        the flavor and the image, but the values do not match
-    :raises: nova.exception.Invalid if a value or combination of values is
-        invalid
-    :returns: True if the multiqueue must be enabled, else False.
-    """
-    if flavor.vcpus < 2:
-        return False
-
-    flavor_value_str, image_value = _get_flavor_image_meta(
-        'vif_multiqueue_enabled', flavor, image_meta)
-
-    flavor_value = None
-    if flavor_value_str is not None:
-        flavor_value = strutils.bool_from_string(flavor_value_str)
-
-    if (
-        image_value is not None and
-        flavor_value is not None and
-        image_value != flavor_value
-    ):
-        msg = _(
-            "Flavor %(flavor_name)s has %(prefix)s:%(key)s extra spec "
-            "explicitly set to %(flavor_val)s, conflicting with image "
-            "%(image_name)s which has %(prefix)s_%(key)s explicitly set to "
-            "%(image_val)s."
-        )
-        raise exception.FlavorImageConflict(
-            msg % {
-                'prefix': 'hw',
-                'key': 'vif_multiqueue_enabled',
-                'flavor_name': flavor.name,
-                'flavor_val': flavor_value,
-                'image_name': image_meta.name,
-                'image_val': image_value,
-            }
-        )
-
-    return flavor_value or image_value or False
 
 
 def numa_get_constraints(flavor, image_meta):
@@ -2412,6 +2415,8 @@ def numa_usage_from_instance_numa(host_topology, instance_topology,
             if instance_cell.cpuset_reserved:
                 pinned_cpus |= instance_cell.cpuset_reserved
 
+            # TODO(stephenfin): Remove the '_with_siblings' variants when we
+            # drop support for 'vcpu_pin_set' since they will then be no-ops
             if free:
                 if (instance_cell.cpu_thread_policy ==
                         fields.CPUThreadAllocationPolicy.ISOLATE):
