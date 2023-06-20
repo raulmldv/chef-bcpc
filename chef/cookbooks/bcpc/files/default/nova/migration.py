@@ -53,12 +53,13 @@ def graphics_listen_addrs(migrate_data):
     return listen_addrs
 
 
-def get_updated_guest_xml(guest, migrate_data, get_volume_config,
+def get_updated_guest_xml(instance, guest, migrate_data, get_volume_config,
                           get_vif_config=None, new_resources=None):
     xml_doc = etree.fromstring(guest.get_xml_desc(dump_migratable=True))
     xml_doc = _update_graphics_xml(xml_doc, migrate_data)
     xml_doc = _update_serial_xml(xml_doc, migrate_data)
-    xml_doc = _update_volume_xml(xml_doc, migrate_data, get_volume_config)
+    xml_doc = _update_volume_xml(
+        xml_doc, migrate_data, instance, get_volume_config)
     xml_doc = _update_perf_events_xml(xml_doc, migrate_data)
     xml_doc = _update_memory_backing_xml(xml_doc, migrate_data)
     if get_vif_config is not None:
@@ -192,7 +193,7 @@ def _update_serial_xml(xml_doc, migrate_data):
     return xml_doc
 
 
-def _update_volume_xml(xml_doc, migrate_data, get_volume_config):
+def _update_volume_xml(xml_doc, migrate_data, instance, get_volume_config):
     """Update XML using device information of destination host."""
     migrate_bdm_info = migrate_data.bdms
 
@@ -209,7 +210,7 @@ def _update_volume_xml(xml_doc, migrate_data, get_volume_config):
             serial_source not in bdm_info_by_serial):
             continue
         conf = get_volume_config(
-            bdm_info.connection_info, bdm_info.as_disk_info())
+            instance, bdm_info.connection_info, bdm_info.as_disk_info())
 
         if bdm_info.obj_attr_is_set('encryption_secret_uuid'):
             conf.encryption = vconfig.LibvirtConfigGuestDiskEncryption()
@@ -296,15 +297,11 @@ def _update_memory_backing_xml(xml_doc, migrate_data):
     """
     old_xml_has_memory_backing = True
     file_backed = False
-    discard = False
 
     memory_backing = xml_doc.findall('./memoryBacking')
 
     if 'dst_wants_file_backed_memory' in migrate_data:
         file_backed = migrate_data.dst_wants_file_backed_memory
-
-    if 'file_backed_memory_discard' in migrate_data:
-        discard = migrate_data.file_backed_memory_discard
 
     if not memory_backing:
         # Create memoryBacking element
@@ -326,9 +323,7 @@ def _update_memory_backing_xml(xml_doc, migrate_data):
     memory_backing.append(etree.Element("source", type="file"))
     memory_backing.append(etree.Element("access", mode="shared"))
     memory_backing.append(etree.Element("allocation", mode="immediate"))
-
-    if discard:
-        memory_backing.append(etree.Element("discard"))
+    memory_backing.append(etree.Element("discard"))
 
     if not old_xml_has_memory_backing:
         xml_doc.append(memory_backing)
