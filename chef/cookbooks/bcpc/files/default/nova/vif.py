@@ -19,6 +19,7 @@
 """VIF drivers for libvirt."""
 
 import os
+import typing as ty
 
 import os_vif
 from os_vif import exception as osv_exception
@@ -41,6 +42,7 @@ from nova import utils
 from nova.virt import hardware
 from nova.virt.libvirt import config as vconfig
 from nova.virt.libvirt import designer
+from nova.virt.libvirt import host as libvirt_host
 from nova.virt import osinfo
 
 
@@ -58,7 +60,8 @@ SUPPORTED_VIF_MODELS = {
         network_model.VIF_MODEL_E1000E,
         network_model.VIF_MODEL_LAN9118,
         network_model.VIF_MODEL_SPAPR_VLAN,
-        network_model.VIF_MODEL_VMXNET3],
+        network_model.VIF_MODEL_VMXNET3,
+    ],
     'kvm': [
         network_model.VIF_MODEL_VIRTIO,
         network_model.VIF_MODEL_NE2K_PCI,
@@ -67,19 +70,14 @@ SUPPORTED_VIF_MODELS = {
         network_model.VIF_MODEL_E1000,
         network_model.VIF_MODEL_E1000E,
         network_model.VIF_MODEL_SPAPR_VLAN,
-        network_model.VIF_MODEL_VMXNET3],
-    'xen': [
-        network_model.VIF_MODEL_NETFRONT,
-        network_model.VIF_MODEL_NE2K_PCI,
-        network_model.VIF_MODEL_PCNET,
-        network_model.VIF_MODEL_RTL8139,
-        network_model.VIF_MODEL_E1000],
+        network_model.VIF_MODEL_VMXNET3,
+    ],
     'lxc': [],
-    'uml': [],
     'parallels': [
         network_model.VIF_MODEL_VIRTIO,
         network_model.VIF_MODEL_RTL8139,
-        network_model.VIF_MODEL_E1000],
+        network_model.VIF_MODEL_E1000,
+    ],
 }
 
 
@@ -152,6 +150,10 @@ def ensure_vlan(vlan_num, bridge_interface, mac_address=None, mtu=None,
 @profiler.trace_cls("vif_driver")
 class LibvirtGenericVIFDriver(object):
     """Generic VIF driver for libvirt networking."""
+
+    def __init__(self, host: libvirt_host.Host = None):
+        super().__init__()
+        self.host = host
 
     def get_vif_devname(self, vif):
         if 'devname' in vif:
@@ -230,7 +232,7 @@ class LibvirtGenericVIFDriver(object):
 
         if driver == 'vhost' or driver is None:
             # vhost backend only supports update of RX queue size
-            if CONF.libvirt.rx_queue_size:
+            if rx_queue_size:
                 # TODO(sahid): Specifically force driver to be vhost
                 # that because if None we don't generate the XML
                 # driver element needed to set the queue size
@@ -270,7 +272,6 @@ class LibvirtGenericVIFDriver(object):
 
         return (driver, vhost_queues)
 
-
     def _get_max_tap_queues(self):
         # Note(sean-k-mooney): some linux distros have backported
         # changes for newer kernels which make the kernel version
@@ -284,7 +285,7 @@ class LibvirtGenericVIFDriver(object):
         # In kernels 3.x, the number of queues on a tap interface
         # is limited to 8. From 4.0, the number is 256.
         # See: https://bugs.launchpad.net/nova/+bug/1570631
-        kernel_version = int(os.uname()[2].split(".")[0])
+        kernel_version = int(os.uname().release.split(".")[0])
         if kernel_version <= 2:
             return 1
         elif kernel_version == 3:
@@ -486,6 +487,13 @@ class LibvirtGenericVIFDriver(object):
             raise exception.InternalError(
                 _('Unsupported VIF port profile type %s') % profile_name)
 
+    def _get_vdpa_dev_path(self, pci_address: ty.Text) -> ty.Text:
+        if self.host is not None:
+            return self.host.get_vdpa_device_path(pci_address)
+        # TODO(sean-k-mooney) this should never be raised remove when host
+        # is not optional in __init__.
+        raise TypeError("self.host must set to use this function.")
+
     def _get_config_os_vif(self, instance, vif, image_meta, inst_type,
                            virt_type, vnic_type):
         """Get the domain config for a VIF
@@ -514,7 +522,13 @@ class LibvirtGenericVIFDriver(object):
         elif isinstance(vif, osv_vifs.VIFVHostUser):
             self._set_config_VIFVHostUser(instance, vif, conf)
         elif isinstance(vif, osv_vifs.VIFHostDevice):
-            self._set_config_VIFHostDevice(instance, vif, conf)
+            if vnic_type != network_model.VNIC_TYPE_VDPA:
+                self._set_config_VIFHostDevice(instance, vif, conf)
+            else:
+                dev_path = self._get_vdpa_dev_path(vif.dev_address)
+                designer.set_vif_host_backend_vdpa_config(
+                    conf, dev_path, CONF.libvirt.rx_queue_size,
+                    CONF.libvirt.tx_queue_size)
         else:
             raise exception.InternalError(
                 _("Unsupported VIF type %s") % vif.obj_name())

@@ -14,7 +14,6 @@
 
 import collections
 import itertools
-import math
 import re
 import typing as ty
 
@@ -23,7 +22,6 @@ import os_traits
 from oslo_log import log as logging
 from oslo_utils import strutils
 from oslo_utils import units
-import six
 
 import nova.conf
 from nova import exception
@@ -339,7 +337,7 @@ def get_cpu_topology_constraints(flavor, image_meta):
         flavor_max_cores = int(flavor_max_cores)
         flavor_max_threads = int(flavor_max_threads)
     except ValueError as e:
-        msg = _('Invalid flavor extra spec. Error: %s') % six.text_type(e)
+        msg = _('Invalid flavor extra spec. Error: %s') % str(e)
         raise exception.InvalidRequest(msg)
 
     LOG.debug("Flavor limits %(sockets)d:%(cores)d:%(threads)d",
@@ -379,7 +377,7 @@ def get_cpu_topology_constraints(flavor, image_meta):
         flavor_cores = int(flavor_cores)
         flavor_threads = int(flavor_threads)
     except ValueError as e:
-        msg = _('Invalid flavor extra spec. Error: %s') % six.text_type(e)
+        msg = _('Invalid flavor extra spec. Error: %s') % str(e)
         raise exception.InvalidRequest(msg)
 
     LOG.debug("Flavor pref %(sockets)d:%(cores)d:%(threads)d",
@@ -505,44 +503,6 @@ def _get_possible_cpu_topologies(vcpus, maxtopology,
     return possible
 
 
-def _filter_for_numa_threads(possible, wantthreads):
-    """Filter topologies which closest match to NUMA threads.
-
-    Determine which topologies provide the closest match to the number
-    of threads desired by the NUMA topology of the instance.
-
-    The possible topologies may not have any entries which match the
-    desired thread count. This method will find the topologies which
-    have the closest matching count. For example, if 'wantthreads' is 4
-    and the possible topologies has entries with 6, 3, 2 or 1 threads,
-    the topologies which have 3 threads will be identified as the
-    closest match not greater than 4 and will be returned.
-
-    :param possible: list of objects.VirtCPUTopology instances
-    :param wantthreads: desired number of threads
-
-    :returns: list of objects.VirtCPUTopology instances
-    """
-    # First figure out the largest available thread
-    # count which is not greater than wantthreads
-    mostthreads = 0
-    for topology in possible:
-        if topology.threads > wantthreads:
-            continue
-        if topology.threads > mostthreads:
-            mostthreads = topology.threads
-
-    # Now restrict to just those topologies which
-    # match the largest thread count
-    bestthreads = []
-    for topology in possible:
-        if topology.threads != mostthreads:
-            continue
-        bestthreads.append(topology)
-
-    return bestthreads
-
-
 def _sort_possible_cpu_topologies(possible, wanttopology):
     """Sort the topologies in order of preference.
 
@@ -580,8 +540,7 @@ def _sort_possible_cpu_topologies(possible, wanttopology):
     return desired
 
 
-def _get_desirable_cpu_topologies(flavor, image_meta, allow_threads=True,
-                                  numa_topology=None):
+def _get_desirable_cpu_topologies(flavor, image_meta, allow_threads=True):
     """Identify desirable CPU topologies based for given constraints.
 
     Look at the properties set in the flavor extra specs and the image
@@ -592,10 +551,6 @@ def _get_desirable_cpu_topologies(flavor, image_meta, allow_threads=True,
     :param flavor: objects.Flavor instance to query extra specs from
     :param image_meta: nova.objects.ImageMeta object instance
     :param allow_threads: if the hypervisor supports CPU threads
-    :param numa_topology: objects.InstanceNUMATopology instance that
-                          may contain additional topology constraints
-                          (such as threading information) that should
-                          be considered
 
     :returns: sorted list of objects.VirtCPUTopology instances
     """
@@ -613,36 +568,12 @@ def _get_desirable_cpu_topologies(flavor, image_meta, allow_threads=True,
                                             maximum,
                                             allow_threads)
     LOG.debug("Possible topologies %s", possible)
-
-    if numa_topology:
-        min_requested_threads = None
-        cell_topologies = [cell.cpu_topology for cell in numa_topology.cells
-                           if ('cpu_topology' in cell and cell.cpu_topology)]
-        if cell_topologies:
-            min_requested_threads = min(
-                    topo.threads for topo in cell_topologies)
-
-        if min_requested_threads:
-            if preferred.threads:
-                min_requested_threads = min(preferred.threads,
-                                            min_requested_threads)
-
-            specified_threads = max(1, min_requested_threads)
-            LOG.debug("Filtering topologies best for %d threads",
-                      specified_threads)
-
-            possible = _filter_for_numa_threads(possible,
-                                                specified_threads)
-            LOG.debug("Remaining possible topologies %s",
-                      possible)
-
     desired = _sort_possible_cpu_topologies(possible, preferred)
     LOG.debug("Sorted desired topologies %s", desired)
     return desired
 
 
-def get_best_cpu_topology(flavor, image_meta, allow_threads=True,
-                          numa_topology=None):
+def get_best_cpu_topology(flavor, image_meta, allow_threads=True):
     """Identify best CPU topology for given constraints.
 
     Look at the properties set in the flavor extra specs and the image
@@ -652,15 +583,11 @@ def get_best_cpu_topology(flavor, image_meta, allow_threads=True,
     :param flavor: objects.Flavor instance to query extra specs from
     :param image_meta: nova.objects.ImageMeta object instance
     :param allow_threads: if the hypervisor supports CPU threads
-    :param numa_topology: objects.InstanceNUMATopology instance that
-                          may contain additional topology constraints
-                          (such as threading information) that should
-                          be considered
 
     :returns: an objects.VirtCPUTopology instance for best topology
     """
-    return _get_desirable_cpu_topologies(flavor, image_meta,
-                                         allow_threads, numa_topology)[0]
+    return _get_desirable_cpu_topologies(
+        flavor, image_meta, allow_threads)[0]
 
 
 def _numa_cell_supports_pagesize_request(host_cell, inst_cell):
@@ -753,43 +680,6 @@ def _pack_instance_onto_cores(host_cell, instance_cell,
 
     pinning = None
     threads_no = 1
-
-    def _orphans(instance_cell, threads_per_core):
-        """Number of instance CPUs which will not fill up a host core.
-
-        Best explained by an example: consider set of free host cores as such:
-            [(0, 1), (3, 5), (6, 7, 8)]
-        This would be a case of 2 threads_per_core AKA an entry for 2 in the
-        sibling_sets structure.
-
-        If we attempt to pack a 5 core instance on it - due to the fact that we
-        iterate the list in order, we will end up with a single core of the
-        instance pinned to a thread "alone" (with id 6), and we would have one
-        'orphan' vcpu.
-        """
-        return len(instance_cell) % threads_per_core
-
-    def _threads(instance_cell, threads_per_core):
-        """Threads to expose to the instance via the VirtCPUTopology.
-
-        This is calculated by taking the GCD of the number of threads we are
-        considering at the moment, and the number of orphans. An example for
-            instance_cell = 6
-            threads_per_core = 4
-
-        So we can fit the instance as such:
-            [(0, 1, 2, 3), (4, 5, 6, 7), (8, 9, 10, 11)]
-              x  x  x  x    x  x
-
-        We can't expose 4 threads, as that will not be a valid topology (all
-        cores exposed to the guest have to have an equal number of threads),
-        and 1 would be too restrictive, but we want all threads that guest sees
-        to be on the same physical core, so we take GCD of 4 (max number of
-        threads) and 2 (number of 'orphan' CPUs) and get 2 as the number of
-        threads.
-        """
-        return math.gcd(threads_per_core, _orphans(instance_cell,
-                                                   threads_per_core))
 
     def _get_pinning(threads_no, sibling_set, instance_cores):
         """Determines pCPUs/vCPUs mapping
@@ -989,7 +879,6 @@ def _pack_instance_onto_cores(host_cell, instance_cell,
         if (instance_cell.cpu_thread_policy !=
                 fields.CPUThreadAllocationPolicy.REQUIRE and
                 not pinning):
-            threads_no = 1
             # we create a fake sibling set by splitting all sibling sets and
             # treating each core as if it has no siblings. This is necessary
             # because '_get_pinning' will normally only take the same amount of
@@ -1006,18 +895,12 @@ def _pack_instance_onto_cores(host_cell, instance_cell,
             cpuset_reserved = _get_reserved(
                 sibling_set, pinning, num_cpu_reserved=num_cpu_reserved)
 
-        threads_no = _threads(instance_cell, threads_no)
-
     if not pinning or (num_cpu_reserved and not cpuset_reserved):
         return
     LOG.debug('Selected cores for pinning: %s, in cell %s', pinning,
                                                             host_cell.id)
 
-    topology = objects.VirtCPUTopology(sockets=1,
-                                       cores=len(pinning) // threads_no,
-                                       threads=threads_no)
     instance_cell.pin_vcpus(*pinning)
-    instance_cell.cpu_topology = topology
     instance_cell.id = host_cell.id
     instance_cell.cpuset_reserved = cpuset_reserved
     return instance_cell
@@ -1116,7 +999,12 @@ def _numa_fit_instance_cell(
                           'cpuset_reserved': cpuset_reserved
                       })
             return None
-    else:
+
+    if instance_cell.cpu_policy in (
+        fields.CPUAllocationPolicy.SHARED,
+        fields.CPUAllocationPolicy.MIXED,
+        None,
+    ):
         required_cpus = len(instance_cell.cpuset)
         if required_cpus > len(host_cell.cpuset):
             LOG.debug('Not enough host cell CPUs to fit instance cell; '
@@ -1130,7 +1018,7 @@ def _numa_fit_instance_cell(
         fields.CPUAllocationPolicy.DEDICATED,
         fields.CPUAllocationPolicy.MIXED,
     ):
-        LOG.debug('Pinning has been requested')
+        LOG.debug('Instance has requested pinned CPUs')
         required_cpus = len(instance_cell.pcpuset) + cpuset_reserved
         if required_cpus > host_cell.avail_pcpus:
             LOG.debug('Not enough available CPUs to schedule instance. '
@@ -1161,9 +1049,14 @@ def _numa_fit_instance_cell(
             LOG.debug('Failed to map instance cell CPUs to host cell CPUs')
             return None
 
-    elif limits:
-        LOG.debug('No pinning requested, considering limitations on usable cpu'
-                  ' and memory')
+    if instance_cell.cpu_policy in (
+        fields.CPUAllocationPolicy.SHARED,
+        fields.CPUAllocationPolicy.MIXED,
+        None,
+    ) and limits:
+        LOG.debug(
+            'Instance has requested shared CPUs; considering limitations '
+            'on usable CPU and memory.')
         cpu_usage = host_cell.cpu_usage + len(instance_cell.cpuset)
         cpu_limit = len(host_cell.cpuset) * limits.cpu_allocation_ratio
         if cpu_usage > cpu_limit:
@@ -1191,10 +1084,11 @@ def _get_flavor_image_meta(
     flavor: 'objects.Flavor',
     image_meta: 'objects.ImageMeta',
     default: ty.Any = None,
+    prefix: str = 'hw',
 ) -> ty.Tuple[ty.Any, ty.Any]:
     """Extract both flavor- and image-based variants of metadata."""
-    flavor_key = ':'.join(['hw', key])
-    image_key = '_'.join(['hw', key])
+    flavor_key = ':'.join([prefix, key])
+    image_key = '_'.join([prefix, key])
 
     flavor_value = flavor.get('extra_specs', {}).get(flavor_key, default)
     image_value = image_meta.properties.get(image_key, default)
@@ -1206,20 +1100,23 @@ def _get_unique_flavor_image_meta(
     key: str,
     flavor: 'objects.Flavor',
     image_meta: 'objects.ImageMeta',
-    default: ty.Any = None
+    default: ty.Any = None,
+    prefix: str = 'hw',
 ) -> ty.Any:
     """A variant of '_get_flavor_image_meta' that errors out on conflicts."""
     flavor_value, image_value = _get_flavor_image_meta(
-        key, flavor, image_meta, default,
+        key, flavor, image_meta, default, prefix,
     )
     if image_value and flavor_value and image_value != flavor_value:
         msg = _(
-            "Flavor %(flavor_name)s has hw:%(key)s extra spec explicitly "
-            "set to %(flavor_val)s, conflicting with image %(image_name)s "
-            "which has hw_%(key)s explicitly set to %(image_val)s."
+            "Flavor %(flavor_name)s has %(prefix)s:%(key)s extra spec "
+            "explicitly set to %(flavor_val)s, conflicting with image "
+            "%(image_name)s which has %(prefix)s_%(key)s explicitly set to "
+            "%(image_val)s."
         )
         raise exception.FlavorImageConflict(
             msg % {
+                'prefix': prefix,
                 'key': key,
                 'flavor_name': flavor.name,
                 'flavor_val': flavor_value,
@@ -1862,8 +1759,11 @@ def get_emulator_thread_policy_constraint(
     return emu_threads_policy
 
 
-def get_pci_numa_policy_constraint(flavor, image_meta):
-    """Return pci numa affinity policy or None.
+def get_pci_numa_policy_constraint(
+    flavor: 'objects.Flavor',
+    image_meta: 'objects.ImageMeta',
+) -> str:
+    """Validate and return the requested PCI NUMA affinity policy.
 
     :param flavor: a flavor object to read extra specs from
     :param image_meta: nova.objects.ImageMeta object instance
@@ -1880,6 +1780,77 @@ def get_pci_numa_policy_constraint(flavor, image_meta):
 
     if policy and policy not in fields.PCINUMAAffinityPolicy.ALL:
         raise exception.InvalidPCINUMAAffinity(policy=policy)
+
+    return policy
+
+
+def get_vtpm_constraint(
+    flavor: 'objects.Flavor',
+    image_meta: 'objects.ImageMeta',
+) -> ty.Optional[VTPMConfig]:
+    """Validate and return the requested vTPM configuration.
+
+    :param flavor: ``nova.objects.Flavor`` instance
+    :param image_meta: ``nova.objects.ImageMeta`` instance
+    :raises: nova.exception.FlavorImageConflict if a value is specified in both
+        the flavor and the image, but the values do not match
+    :raises: nova.exception.Invalid if a value or combination of values is
+        invalid
+    :returns: A named tuple containing the vTPM version and model, else None.
+    """
+    version = _get_unique_flavor_image_meta('tpm_version', flavor, image_meta)
+    if version is None:
+        return None
+
+    if version not in fields.TPMVersion.ALL:
+        raise exception.Invalid(
+            "Invalid TPM version %(version)r. Allowed values: %(valid)s." %
+            {'version': version, 'valid': ', '.join(fields.TPMVersion.ALL)}
+        )
+
+    model = _get_unique_flavor_image_meta('tpm_model', flavor, image_meta)
+    if model is None:
+        # model defaults to TIS
+        model = fields.TPMModel.TIS
+    elif model not in fields.TPMModel.ALL:
+        raise exception.Invalid(
+            "Invalid TPM model %(model)r. Allowed values: %(valid)s." %
+            {'model': model, 'valid': ', '.join(fields.TPMModel.ALL)}
+        )
+    elif model == fields.TPMModel.CRB and version != fields.TPMVersion.v2_0:
+        raise exception.Invalid(
+            "TPM model CRB is only valid with TPM version 2.0."
+        )
+
+    return VTPMConfig(version, model)
+
+
+def get_secure_boot_constraint(
+    flavor: 'objects.Flavor',
+    image_meta: 'objects.ImageMeta',
+) -> ty.Optional[str]:
+    """Validate and return the requested secure boot policy.
+
+    :param flavor: ``nova.objects.Flavor`` instance
+    :param image_meta: ``nova.objects.ImageMeta`` instance
+    :raises: nova.exception.Invalid if a value or combination of values is
+        invalid
+    :returns: The secure boot configuration requested, if any.
+    """
+    policy = _get_unique_flavor_image_meta(
+        'secure_boot', flavor, image_meta, prefix='os',
+    )
+    if policy is None:
+        return None
+
+    if policy not in fields.SecureBoot.ALL:
+        msg = _(
+            'Invalid secure boot policy %(policy)r. Allowed values: %(valid)s.'
+        )
+        raise exception.Invalid(msg % {
+            'policy': policy,
+            'valid': ', '.join(fields.SecureBoot.ALL)
+        })
 
     return policy
 
@@ -1928,47 +1899,6 @@ def get_vif_multiqueue_constraint(flavor, image_meta):
         )
 
     return flavor_value or image_value or False
-
-
-def get_vtpm_constraint(
-    flavor: 'objects.Flavor',
-    image_meta: 'objects.ImageMeta',
-) -> ty.Optional[VTPMConfig]:
-    """Validate and return the requested vTPM configuration.
-
-    :param flavor: ``nova.objects.Flavor`` instance
-    :param image_meta: ``nova.objects.ImageMeta`` instance
-    :raises: nova.exception.FlavorImageConflict if a value is specified in both
-        the flavor and the image, but the values do not match
-    :raises: nova.exception.Invalid if a value or combination of values is
-        invalid
-    :returns: A named tuple containing the vTPM version and model, else None.
-    """
-    version = _get_unique_flavor_image_meta('tpm_version', flavor, image_meta)
-    if version is None:
-        return None
-
-    if version not in fields.TPMVersion.ALL:
-        raise exception.Invalid(
-            "Invalid TPM version %(version)r. Allowed values: %(valid)s." %
-            {'version': version, 'valid': ', '.join(fields.TPMVersion.ALL)}
-        )
-
-    model = _get_unique_flavor_image_meta('tpm_model', flavor, image_meta)
-    if model is None:
-        # model defaults to TIS
-        model = fields.TPMModel.TIS
-    elif model not in fields.TPMModel.ALL:
-        raise exception.Invalid(
-            "Invalid TPM model %(model)r. Allowed values: %(valid)s." %
-            {'model': model, 'valid': ', '.join(fields.TPMModel.ALL)}
-        )
-    elif model == fields.TPMModel.CRB and version != fields.TPMVersion.v2_0:
-        raise exception.Invalid(
-            "TPM model CRB is only valid with TPM version 2.0."
-        )
-
-    return VTPMConfig(version, model)
 
 
 def numa_get_constraints(flavor, image_meta):
