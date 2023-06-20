@@ -10,7 +10,7 @@ if platform?('ubuntu')
 end
 default['bcpc']['openstack']['repo']['url'] = 'http://ubuntu-cloud.archive.canonical.com/ubuntu'
 
-default['bcpc']['openstack']['repo']['release'] = 'wallaby'
+default['bcpc']['openstack']['repo']['release'] = 'xena'
 default['bcpc']['openstack']['repo']['branch'] = 'updates'
 default['bcpc']['openstack']['repo']['key'] = 'openstack/release.key'
 
