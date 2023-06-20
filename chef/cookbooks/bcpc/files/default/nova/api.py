@@ -53,8 +53,8 @@ from nova import conductor
 import nova.conf
 from nova import context as nova_context
 from nova import crypto
-from nova.db import base
-from nova.db.sqlalchemy import api as db_api
+from nova.db.api import api as api_db_api
+from nova.db.main import api as main_db_api
 from nova import exception
 from nova import exception_wrapper
 from nova.i18n import _
@@ -70,6 +70,7 @@ from nova.objects import fields as fields_obj
 from nova.objects import image_meta as image_meta_obj
 from nova.objects import keypair as keypair_obj
 from nova.objects import quotas as quotas_obj
+from nova.objects import service as service_obj
 from nova.pci import request as pci_request
 from nova.policies import servers as servers_policies
 import nova.policy
@@ -107,6 +108,12 @@ MIN_COMPUTE_SAME_HOST_COLD_MIGRATE = 48
 MIN_VER_NOVA_COMPUTE_MIXED_POLICY = 52
 
 SUPPORT_ACCELERATOR_SERVICE_FOR_REBUILD = 53
+
+SUPPORT_VNIC_TYPE_ACCELERATOR = 57
+
+MIN_COMPUTE_BOOT_WITH_EXTENDED_RESOURCE_REQUEST = 58
+MIN_COMPUTE_MOVE_WITH_EXTENDED_RESOURCE_REQUEST = 59
+MIN_COMPUTE_INT_ATTACH_WITH_EXTENDED_RES_REQ = 60
 
 # FIXME(danms): Keep a global cache of the cells we find the
 # first time we look. This needs to be refreshed on a timer or
@@ -207,9 +214,10 @@ def check_instance_host(check_is_up=False):
             if check_is_up:
                 # Make sure the source compute service is not down otherwise we
                 # cannot proceed.
-                host_status = self.get_instance_host_status(instance)
-                if host_status not in (fields_obj.HostStatus.UP,
-                                       fields_obj.HostStatus.MAINTENANCE):
+                service = [
+                    service for service in instance.services
+                        if service.binary == 'nova-compute'][0]
+                if not self.servicegroup_api.service_is_up(service):
                     # ComputeServiceUnavailable would make more sense here but
                     # we do not want to leak hostnames to end users.
                     raise exception.ServiceUnavailable()
@@ -333,12 +341,42 @@ def block_accelerators(until_service=None):
     return inner
 
 
+def block_port_accelerators():
+    def inner(func):
+        @functools.wraps(func)
+        def wrapper(self, context, instance, *args, **kwargs):
+            # Catch a request operating a instance with accelerators
+            # attach to ports.
+            nw_info = instance.get_network_info()
+            for vif in nw_info:
+                vnic_type = vif['vnic_type']
+                if vnic_type in (network_model.VNIC_TYPE_ACCELERATOR_DIRECT,
+                    network_model.VNIC_TYPE_ACCELERATOR_DIRECT_PHYSICAL):
+                    raise exception.ForbiddenPortsWithAccelerator()
+            return func(self, context, instance, *args, **kwargs)
+        return wrapper
+    return inner
+
+
+def block_extended_resource_request(function):
+    @functools.wraps(function)
+    def inner(self, context, instance, *args, **kwargs):
+        if self.network_api.instance_has_extended_resource_request(
+                instance.uuid
+        ):
+            version = service_obj.get_minimum_version_all_cells(
+                context, ["nova-compute"])
+            if version < MIN_COMPUTE_MOVE_WITH_EXTENDED_RESOURCE_REQUEST:
+                raise exception.ExtendedResourceRequestOldCompute()
+        return function(self, context, instance, *args, **kwargs)
+    return inner
+
+
 @profiler.trace_cls("compute_api")
-class API(base.Base):
+class API:
     """API for interacting with the compute manager."""
 
-    def __init__(self, image_api=None, network_api=None, volume_api=None,
-                 **kwargs):
+    def __init__(self, image_api=None, network_api=None, volume_api=None):
         self.image_api = image_api or glance.API()
         self.network_api = network_api or neutron.API()
         self.volume_api = volume_api or cinder.API()
@@ -352,7 +390,6 @@ class API(base.Base):
             self.key_manager = key_manager.API()
         # Help us to record host in EventReporter
         self.host = CONF.host
-        super(API, self).__init__(**kwargs)
 
     def _record_action_start(self, context, instance, action):
         objects.InstanceAction.action_start(context, instance.uuid,
@@ -583,8 +620,9 @@ class API(base.Base):
         # reason, we rely on the DB to cast True to a String.
         return True if bool_val else ''
 
-    def _validate_flavor_image(self, context, image_id, image,
-                               instance_type, root_bdm, validate_numa=True):
+    def _validate_flavor_image(
+        self, context, image_id, image, flavor, root_bdm, validate_numa=True,
+    ):
         """Validate the flavor and image.
 
         This is called from the API service to ensure that the flavor
@@ -594,20 +632,20 @@ class API(base.Base):
         :param context: A context.RequestContext
         :param image_id: UUID of the image
         :param image: a dict representation of the image including properties,
-                      enforces the image status is active.
-        :param instance_type: Flavor object
+            enforces the image status is active.
+        :param flavor: Flavor object
         :param root_bdm: BlockDeviceMapping for root disk.  Will be None for
-               the resize case.
+            the resize case.
         :param validate_numa: Flag to indicate whether or not to validate
-               the NUMA-related metadata.
-        :raises: Many different possible exceptions.  See
-                 api.openstack.compute.servers.INVALID_FLAVOR_IMAGE_EXCEPTIONS
-                 for the full list.
+            the NUMA-related metadata.
+        :raises: Many different possible exceptions. See
+            api.openstack.compute.servers.INVALID_FLAVOR_IMAGE_EXCEPTIONS
+            for the full list.
         """
         if image and image['status'] != 'active':
             raise exception.ImageNotActive(image_id=image_id)
-        self._validate_flavor_image_nostatus(context, image, instance_type,
-                                             root_bdm, validate_numa)
+        self._validate_flavor_image_nostatus(
+            context, image, flavor, root_bdm, validate_numa)
 
     @staticmethod
     def _detect_nonbootable_image_from_properties(image_id, image):
@@ -640,9 +678,10 @@ class API(base.Base):
                                               reason=reason)
 
     @staticmethod
-    def _validate_flavor_image_nostatus(context, image, instance_type,
-                                        root_bdm, validate_numa=True,
-                                        validate_pci=False):
+    def _validate_flavor_image_nostatus(
+        context, image, flavor, root_bdm, validate_numa=True,
+        validate_pci=False,
+    ):
         """Validate the flavor and image.
 
         This is called from the API service to ensure that the flavor
@@ -651,7 +690,7 @@ class API(base.Base):
 
         :param context: A context.RequestContext
         :param image: a dict representation of the image including properties
-        :param instance_type: Flavor object
+        :param flavor: Flavor object
         :param root_bdm: BlockDeviceMapping for root disk.  Will be None for
                the resize case.
         :param validate_numa: Flag to indicate whether or not to validate
@@ -672,7 +711,7 @@ class API(base.Base):
             raise exception.InvalidImageConfigDrive(
                 config_drive=config_drive_option)
 
-        if instance_type['memory_mb'] < int(image.get('min_ram') or 0):
+        if flavor['memory_mb'] < int(image.get('min_ram') or 0):
             raise exception.FlavorMemoryTooSmall()
 
         # Image min_disk is in gb, size is in bytes. For sanity, have them both
@@ -728,7 +767,7 @@ class API(base.Base):
 
         # Target disk is a local disk whose size is taken from the flavor
         else:
-            dest_size = instance_type['root_gb'] * units.Gi
+            dest_size = flavor['root_gb'] * units.Gi
 
             # NOTE(johannes): root_gb is allowed to be 0 for legacy reasons
             # since libvirt interpreted the value differently than other
@@ -752,7 +791,7 @@ class API(base.Base):
                     raise exception.BootFromVolumeRequiredForZeroDiskFlavor()
 
         API._validate_flavor_image_numa_pci(
-            image, instance_type, validate_numa=validate_numa,
+            image, flavor, validate_numa=validate_numa,
             validate_pci=validate_pci)
 
     # TODO(huaqiang): Remove in Wallaby when there is no nova-compute node
@@ -778,9 +817,9 @@ class API(base.Base):
             raise exception.MixedInstanceNotSupportByComputeService()
 
     @staticmethod
-    def _validate_flavor_image_numa_pci(image, instance_type,
-                                        validate_numa=True,
-                                        validate_pci=False):
+    def _validate_flavor_image_numa_pci(
+        image, flavor, validate_numa=True, validate_pci=False,
+    ):
         """Validate the flavor and image NUMA/PCI values.
 
         This is called from the API service to ensure that the flavor
@@ -788,7 +827,7 @@ class API(base.Base):
         with each other.
 
         :param image: a dict representation of the image including properties
-        :param instance_type: Flavor object
+        :param flavor: Flavor object
         :param validate_numa: Flag to indicate whether or not to validate
                the NUMA-related metadata.
         :param validate_pci: Flag to indicate whether or not to validate
@@ -799,10 +838,10 @@ class API(base.Base):
         """
         image_meta = _get_image_meta_obj(image)
 
-        API._validate_flavor_image_mem_encryption(instance_type, image_meta)
+        API._validate_flavor_image_mem_encryption(flavor, image_meta)
 
         # validate PMU extra spec and image metadata
-        flavor_pmu = instance_type.extra_specs.get('hw:pmu')
+        flavor_pmu = flavor.extra_specs.get('hw:pmu')
         image_pmu = image_meta.properties.get('hw_pmu')
         if (flavor_pmu is not None and image_pmu is not None and
                 image_pmu != strutils.bool_from_string(flavor_pmu)):
@@ -810,30 +849,29 @@ class API(base.Base):
 
         # Only validate values of flavor/image so the return results of
         # following 'get' functions are not used.
-        hardware.get_number_of_serial_ports(instance_type, image_meta)
-        hardware.get_realtime_cpu_constraint(instance_type, image_meta)
-        hardware.get_cpu_topology_constraints(instance_type, image_meta)
-        hardware.get_vif_multiqueue_constraint(instance_type, image_meta)
+        hardware.get_number_of_serial_ports(flavor, image_meta)
+        hardware.get_realtime_cpu_constraint(flavor, image_meta)
+        hardware.get_cpu_topology_constraints(flavor, image_meta)
+        hardware.get_vif_multiqueue_constraint(flavor, image_meta)
         if validate_numa:
-            hardware.numa_get_constraints(instance_type, image_meta)
+            hardware.numa_get_constraints(flavor, image_meta)
         if validate_pci:
-            pci_request.get_pci_requests_from_flavor(instance_type)
+            pci_request.get_pci_requests_from_flavor(flavor)
 
     @staticmethod
-    def _validate_flavor_image_mem_encryption(instance_type, image):
+    def _validate_flavor_image_mem_encryption(flavor, image):
         """Validate that the flavor and image don't make contradictory
         requests regarding memory encryption.
 
-        :param instance_type: Flavor object
+        :param flavor: Flavor object
         :param image: an ImageMeta object
         :raises: nova.exception.FlavorImageConflict
         """
         # This library function will raise the exception for us if
         # necessary; if not, we can ignore the result returned.
-        hardware.get_mem_encryption_constraint(instance_type, image)
+        hardware.get_mem_encryption_constraint(flavor, image)
 
-    def _get_image_defined_bdms(self, instance_type, image_meta,
-                                root_device_name):
+    def _get_image_defined_bdms(self, flavor, image_meta, root_device_name):
         image_properties = image_meta.get('properties', {})
 
         # Get the block device mappings defined by the image.
@@ -850,14 +888,13 @@ class API(base.Base):
                                           image_defined_bdms))
 
         if image_mapping:
-            image_mapping = self._prepare_image_mapping(instance_type,
-                                                        image_mapping)
+            image_mapping = self._prepare_image_mapping(flavor, image_mapping)
             image_defined_bdms = self._merge_bdms_lists(
                 image_mapping, image_defined_bdms)
 
         return image_defined_bdms
 
-    def _get_flavor_defined_bdms(self, instance_type, block_device_mapping):
+    def _get_flavor_defined_bdms(self, flavor, block_device_mapping):
         flavor_defined_bdms = []
 
         have_ephemeral_bdms = any(filter(
@@ -865,12 +902,12 @@ class API(base.Base):
         have_swap_bdms = any(filter(
             block_device.new_format_is_swap, block_device_mapping))
 
-        if instance_type.get('ephemeral_gb') and not have_ephemeral_bdms:
+        if flavor.get('ephemeral_gb') and not have_ephemeral_bdms:
             flavor_defined_bdms.append(
-                block_device.create_blank_bdm(instance_type['ephemeral_gb']))
-        if instance_type.get('swap') and not have_swap_bdms:
+                block_device.create_blank_bdm(flavor['ephemeral_gb']))
+        if flavor.get('swap') and not have_swap_bdms:
             flavor_defined_bdms.append(
-                block_device.create_blank_bdm(instance_type['swap'], 'swap'))
+                block_device.create_blank_bdm(flavor['swap'], 'swap'))
 
         return flavor_defined_bdms
 
@@ -888,9 +925,10 @@ class API(base.Base):
                 [bdm for bdm in overridable_mappings
                  if bdm['device_name'] not in device_names])
 
-    def _check_and_transform_bdm(self, context, base_options, instance_type,
-                                 image_meta, min_count, max_count,
-                                 block_device_mapping, legacy_bdm):
+    def _check_and_transform_bdm(
+        self, context, base_options, flavor, image_meta, min_count, max_count,
+        block_device_mapping, legacy_bdm,
+    ):
         # NOTE (ndipanov): Assume root dev name is 'vda' if not supplied.
         #                  It's needed for legacy conversion to work.
         root_device_name = (base_options.get('root_device_name') or 'vda')
@@ -907,7 +945,7 @@ class API(base.Base):
                     raise exception.InvalidRequest(msg)
 
         image_defined_bdms = self._get_image_defined_bdms(
-            instance_type, image_meta, root_device_name)
+            flavor, image_meta, root_device_name)
         root_in_image_bdms = (
             block_device.get_root_bdm(image_defined_bdms) is not None)
 
@@ -943,7 +981,7 @@ class API(base.Base):
                 raise exception.InvalidRequest(msg)
 
         block_device_mapping += self._get_flavor_defined_bdms(
-            instance_type, block_device_mapping)
+            flavor, block_device_mapping)
 
         return block_device_obj.block_device_make_list_from_dicts(
                 context, block_device_mapping)
@@ -955,33 +993,43 @@ class API(base.Base):
         image = self.image_api.get(context, image_href)
         return image['id'], image
 
-    def _checks_for_create_and_rebuild(self, context, image_id, image,
-                                       instance_type, metadata,
-                                       files_to_inject, root_bdm,
-                                       validate_numa=True):
+    def _checks_for_create_and_rebuild(
+        self, context, image_id, image, flavor, metadata, files_to_inject,
+        root_bdm, validate_numa=True,
+    ):
         self._check_metadata_properties_quota(context, metadata)
         self._check_injected_file_quota(context, files_to_inject)
         self._detect_nonbootable_image_from_properties(image_id, image)
         self._validate_flavor_image(context, image_id, image,
-                                    instance_type, root_bdm,
+                                    flavor, root_bdm,
                                     validate_numa=validate_numa)
 
-    def _validate_and_build_base_options(self, context, instance_type,
-                                         boot_meta, image_href, image_id,
-                                         kernel_id, ramdisk_id, display_name,
-                                         display_description, key_name,
-                                         key_data, security_groups,
-                                         availability_zone, user_data,
-                                         metadata, access_ip_v4, access_ip_v6,
-                                         requested_networks, config_drive,
-                                         auto_disk_config, reservation_id,
-                                         max_count,
-                                         supports_port_resource_request):
+    def _check_support_vnic_accelerator(self, context, requested_networks):
+        if requested_networks:
+            for request_net in requested_networks:
+                if request_net.device_profile:
+                    min_version = (objects.service.
+                        get_minimum_version_all_cells(
+                            context,
+                            ['nova-compute']))
+                    if min_version < SUPPORT_VNIC_TYPE_ACCELERATOR:
+                        msg = ("Port with cyborg profile is not avaliable"
+                            " until upgrade finished.")
+                        raise exception.ForbiddenPortsWithAccelerator(msg)
+
+    def _validate_and_build_base_options(
+        self, context, flavor, boot_meta, image_href, image_id, kernel_id,
+        ramdisk_id, display_name, display_description, hostname, key_name,
+        key_data, security_groups, availability_zone, user_data, metadata,
+        access_ip_v4, access_ip_v6, requested_networks, config_drive,
+        auto_disk_config, reservation_id, max_count,
+        supports_port_resource_request,
+    ):
         """Verify all the input parameters regardless of the provisioning
         strategy being performed.
         """
-        if instance_type['disabled']:
-            raise exception.FlavorNotFound(flavor_id=instance_type['id'])
+        if flavor['disabled']:
+            raise exception.FlavorNotFound(flavor_id=flavor['id'])
 
         if user_data:
             try:
@@ -1018,13 +1066,12 @@ class API(base.Base):
                     boot_meta.get('properties', {})))
 
         image_meta = _get_image_meta_obj(boot_meta)
-        numa_topology = hardware.numa_get_constraints(
-                instance_type, image_meta)
+        numa_topology = hardware.numa_get_constraints(flavor, image_meta)
 
         system_metadata = {}
 
         pci_numa_affinity_policy = hardware.get_pci_numa_policy_constraint(
-            instance_type, image_meta)
+            flavor, image_meta)
 
         # PCI requests come from two sources: instance flavor and
         # requested_networks. The first call in below returns an
@@ -1033,17 +1080,31 @@ class API(base.Base):
         # object for each SR-IOV port, and append it to the list in the
         # InstancePCIRequests object
         pci_request_info = pci_request.get_pci_requests_from_flavor(
-            instance_type, affinity_policy=pci_numa_affinity_policy)
+            flavor, affinity_policy=pci_numa_affinity_policy)
         result = self.network_api.create_resource_requests(
             context, requested_networks, pci_request_info,
             affinity_policy=pci_numa_affinity_policy)
-        network_metadata, port_resource_requests = result
+        network_metadata, port_resource_requests, req_lvl_params = result
+
+        self._check_support_vnic_accelerator(context, requested_networks)
 
         # Creating servers with ports that have resource requests, like QoS
         # minimum bandwidth rules, is only supported in a requested minimum
         # microversion.
         if port_resource_requests and not supports_port_resource_request:
             raise exception.CreateWithPortResourceRequestOldVersion()
+
+        # TODO(gibi): remove this when Nova does not need to support Wallaby
+        # computes any more.
+        if (port_resource_requests and
+            self.network_api.has_extended_resource_request_extension(context)
+        ):
+            # we only support the extended resource request if the computes are
+            # upgraded to Xena.
+            min_version = objects.service.get_minimum_version_all_cells(
+                context, ["nova-compute"])
+            if min_version < MIN_COMPUTE_BOOT_WITH_EXTENDED_RESOURCE_REQUEST:
+                raise exception.ExtendedResourceRequestOldCompute()
 
         base_options = {
             'reservation_id': reservation_id,
@@ -1055,13 +1116,14 @@ class API(base.Base):
             'config_drive': config_drive,
             'user_id': context.user_id,
             'project_id': context.project_id,
-            'instance_type_id': instance_type['id'],
-            'memory_mb': instance_type['memory_mb'],
-            'vcpus': instance_type['vcpus'],
-            'root_gb': instance_type['root_gb'],
-            'ephemeral_gb': instance_type['ephemeral_gb'],
+            'instance_type_id': flavor['id'],
+            'memory_mb': flavor['memory_mb'],
+            'vcpus': flavor['vcpus'],
+            'root_gb': flavor['root_gb'],
+            'ephemeral_gb': flavor['ephemeral_gb'],
             'display_name': display_name,
             'display_description': display_description,
+            'hostname': hostname,
             'user_data': user_data,
             'key_name': key_name,
             'key_data': key_data,
@@ -1075,7 +1137,9 @@ class API(base.Base):
             'pci_requests': pci_request_info,
             'numa_topology': numa_topology,
             'system_metadata': system_metadata,
-            'port_resource_requests': port_resource_requests}
+            'port_resource_requests': port_resource_requests,
+            'request_level_params': req_lvl_params,
+        }
 
         options_from_image = self._inherit_properties_from_image(
                 boot_meta, auto_disk_config)
@@ -1088,7 +1152,7 @@ class API(base.Base):
                 network_metadata)
 
     @staticmethod
-    @db_api.api_context_manager.writer
+    @api_db_api.context_manager.writer
     def _create_reqspec_buildreq_instmapping(context, rs, br, im):
         """Create the request spec, build request, and instance mapping in a
         single database transaction.
@@ -1241,13 +1305,15 @@ class API(base.Base):
                 'instance_az': instance_az, 'volume_az': volume_az}
             raise exception.MismatchVolumeAZException(reason=msg)
 
-    def _provision_instances(self, context, instance_type, min_count,
-            max_count, base_options, boot_meta, security_groups,
-            block_device_mapping, shutdown_terminate,
-            instance_group, check_server_group_quota, filter_properties,
-            key_pair, tags, trusted_certs, supports_multiattach,
-            network_metadata=None, requested_host=None,
-            requested_hypervisor_hostname=None):
+    def _provision_instances(
+        self, context, flavor, min_count,
+        max_count, base_options, boot_meta, security_groups,
+        block_device_mapping, shutdown_terminate,
+        instance_group, check_server_group_quota, filter_properties,
+        key_pair, tags, trusted_certs, supports_multiattach,
+        network_metadata=None, requested_host=None,
+        requested_hypervisor_hostname=None,
+    ):
         # NOTE(boxiang): Check whether compute nodes exist by validating
         # the host and/or the hypervisor_hostname. Pass the destination
         # to the scheduler with host and/or hypervisor_hostname(node).
@@ -1261,10 +1327,11 @@ class API(base.Base):
             destination.node = requested_hypervisor_hostname
         # Check quotas
         num_instances = compute_utils.check_num_instances_quota(
-                context, instance_type, min_count, max_count)
+            context, flavor, min_count, max_count)
         security_groups = security_group_api.populate_security_groups(
-                security_groups)
+            security_groups)
         port_resource_requests = base_options.pop('port_resource_requests')
+        req_lvl_params = base_options.pop('request_level_params')
         instances_to_build = []
         # We could be iterating over several instances with several BDMs per
         # instance and those BDMs could be using a lot of the same images so
@@ -1282,25 +1349,27 @@ class API(base.Base):
             # base_options to match the volume zone.
             base_options['availability_zone'] = volume_az
         LOG.debug("Going to run %s instances...", num_instances)
-        extra_specs = instance_type.extra_specs
+        extra_specs = flavor.extra_specs
         dp_name = extra_specs.get('accel:device_profile')
         dp_request_groups = []
         if dp_name:
             dp_request_groups = cyborg.get_device_profile_request_groups(
                 context, dp_name)
         try:
-            for i in range(num_instances):
+            for idx in range(num_instances):
                 # Create a uuid for the instance so we can store the
                 # RequestSpec before the instance is created.
                 instance_uuid = uuidutils.generate_uuid()
                 # Store the RequestSpec that will be used for scheduling.
-                req_spec = objects.RequestSpec.from_components(context,
-                        instance_uuid, boot_meta, instance_type,
-                        base_options['numa_topology'],
-                        base_options['pci_requests'], filter_properties,
-                        instance_group, base_options['availability_zone'],
-                        security_groups=security_groups,
-                        port_resource_requests=port_resource_requests)
+                req_spec = objects.RequestSpec.from_components(
+                    context,
+                    instance_uuid, boot_meta, flavor,
+                    base_options['numa_topology'],
+                    base_options['pci_requests'], filter_properties,
+                    instance_group, base_options['availability_zone'],
+                    security_groups=security_groups,
+                    port_resource_requests=port_resource_requests,
+                    request_level_params=req_lvl_params)
 
                 if block_device_mapping:
                     # Record whether or not we are a BFV instance
@@ -1337,13 +1406,14 @@ class API(base.Base):
                 instance.trusted_certs = self._retrieve_trusted_certs_object(
                     context, trusted_certs)
 
-                instance = self.create_db_entry_for_new_instance(context,
-                        instance_type, boot_meta, instance, security_groups,
-                        block_device_mapping, num_instances, i,
-                        shutdown_terminate, create_instance=False)
+                self._populate_instance_for_create(
+                    context, instance, boot_meta, idx,
+                    security_groups, flavor,
+                    num_instances, shutdown_terminate)
+
                 block_device_mapping = (
                     self._bdm_validate_set_size_and_instance(context,
-                        instance, instance_type, block_device_mapping,
+                        instance, flavor, block_device_mapping,
                         image_cache, volumes, supports_multiattach))
                 instance_tags = self._transform_tags(tags, instance.uuid)
 
@@ -1460,10 +1530,10 @@ class API(base.Base):
 
         return objects.InstanceGroup.get_by_uuid(context, group_hint)
 
-    def _create_instance(self, context, instance_type,
+    def _create_instance(self, context, flavor,
                image_href, kernel_id, ramdisk_id,
                min_count, max_count,
-               display_name, display_description,
+               display_name, display_description, hostname,
                key_name, key_data, security_groups,
                availability_zone, user_data, metadata, injected_files,
                admin_password, access_ip_v4, access_ip_v6,
@@ -1507,14 +1577,17 @@ class API(base.Base):
         self._check_auto_disk_config(image=boot_meta,
                                      auto_disk_config=auto_disk_config)
 
-        base_options, max_net_count, key_pair, security_groups, \
-            network_metadata = self._validate_and_build_base_options(
-                    context, instance_type, boot_meta, image_href, image_id,
-                    kernel_id, ramdisk_id, display_name, display_description,
-                    key_name, key_data, security_groups, availability_zone,
-                    user_data, metadata, access_ip_v4, access_ip_v6,
-                    requested_networks, config_drive, auto_disk_config,
-                    reservation_id, max_count, supports_port_resource_request)
+        (
+            base_options, max_net_count, key_pair, security_groups,
+            network_metadata,
+        ) = self._validate_and_build_base_options(
+            context, flavor, boot_meta, image_href, image_id,
+            kernel_id, ramdisk_id, display_name, display_description,
+            hostname, key_name, key_data, security_groups, availability_zone,
+            user_data, metadata, access_ip_v4, access_ip_v6,
+            requested_networks, config_drive, auto_disk_config,
+            reservation_id, max_count, supports_port_resource_request,
+        )
 
         # TODO(huaqiang): Remove in Wallaby
         # check nova-compute nodes have been updated to Victoria to support the
@@ -1535,7 +1608,7 @@ class API(base.Base):
             max_count = max_net_count
 
         block_device_mapping = self._check_and_transform_bdm(context,
-            base_options, instance_type, boot_meta, min_count, max_count,
+            base_options, flavor, boot_meta, min_count, max_count,
             block_device_mapping, legacy_bdm)
 
         # We can't do this check earlier because we need bdms from all sources
@@ -1543,16 +1616,16 @@ class API(base.Base):
         # Set validate_numa=False since numa validation is already done by
         # _validate_and_build_base_options().
         self._checks_for_create_and_rebuild(context, image_id, boot_meta,
-                instance_type, metadata, injected_files,
+                flavor, metadata, injected_files,
                 block_device_mapping.root_bdm(), validate_numa=False)
 
-        instance_group = self._get_requested_instance_group(context,
-                                   filter_properties)
+        instance_group = self._get_requested_instance_group(
+            context, filter_properties)
 
         tags = self._create_tag_list_obj(context, tags)
 
         instances_to_build = self._provision_instances(
-            context, instance_type, min_count, max_count, base_options,
+            context, flavor, min_count, max_count, base_options,
             boot_meta, security_groups, block_device_mapping,
             shutdown_terminate, instance_group, check_server_group_quota,
             filter_properties, key_pair, tags, trusted_certs,
@@ -1611,18 +1684,18 @@ class API(base.Base):
                 pass
 
     @staticmethod
-    def _volume_size(instance_type, bdm):
+    def _volume_size(flavor, bdm):
         size = bdm.get('volume_size')
         # NOTE (ndipanov): inherit flavor size only for swap and ephemeral
         if (size is None and bdm.get('source_type') == 'blank' and
                 bdm.get('destination_type') == 'local'):
             if bdm.get('guest_format') == 'swap':
-                size = instance_type.get('swap', 0)
+                size = flavor.get('swap', 0)
             else:
-                size = instance_type.get('ephemeral_gb', 0)
+                size = flavor.get('ephemeral_gb', 0)
         return size
 
-    def _prepare_image_mapping(self, instance_type, mappings):
+    def _prepare_image_mapping(self, flavor, mappings):
         """Extract and format blank devices from image mappings."""
 
         prepared_mappings = []
@@ -1653,7 +1726,7 @@ class API(base.Base):
                 'boot_index': -1})
 
             values['volume_size'] = self._volume_size(
-                instance_type, values)
+                flavor, values)
             if values['volume_size'] == 0:
                 continue
 
@@ -1662,7 +1735,7 @@ class API(base.Base):
         return prepared_mappings
 
     def _bdm_validate_set_size_and_instance(self, context, instance,
-                                            instance_type,
+                                            flavor,
                                             block_device_mapping,
                                             image_cache, volumes,
                                             supports_multiattach=False):
@@ -1673,7 +1746,7 @@ class API(base.Base):
 
         :param context: nova auth RequestContext
         :param instance: Instance object
-        :param instance_type: Flavor object - used for swap and ephemeral BDMs
+        :param flavor: Flavor object - used for swap and ephemeral BDMs
         :param block_device_mapping: BlockDeviceMappingList object
         :param image_cache: dict of image dicts keyed by id which is used as a
             cache in case there are multiple BDMs in the same request using
@@ -1685,11 +1758,11 @@ class API(base.Base):
         LOG.debug("block_device_mapping %s", list(block_device_mapping),
                   instance_uuid=instance.uuid)
         self._validate_bdm(
-            context, instance, instance_type, block_device_mapping,
+            context, instance, flavor, block_device_mapping,
             image_cache, volumes, supports_multiattach)
         instance_block_device_mapping = block_device_mapping.obj_clone()
         for bdm in instance_block_device_mapping:
-            bdm.volume_size = self._volume_size(instance_type, bdm)
+            bdm.volume_size = self._volume_size(flavor, bdm)
             bdm.instance_uuid = instance.uuid
         return instance_block_device_mapping
 
@@ -1713,14 +1786,15 @@ class API(base.Base):
             raise exception.VolumeTypeNotFound(
                 id_or_name=volume_type_id_or_name)
 
-    def _validate_bdm(self, context, instance, instance_type,
-                      block_device_mappings, image_cache, volumes,
-                      supports_multiattach=False):
+    def _validate_bdm(
+        self, context, instance, flavor, block_device_mappings, image_cache,
+        volumes, supports_multiattach=False,
+    ):
         """Validate requested block device mappings.
 
         :param context: nova auth RequestContext
         :param instance: Instance object
-        :param instance_type: Flavor object - used for swap and ephemeral BDMs
+        :param flavor: Flavor object - used for swap and ephemeral BDMs
         :param block_device_mappings: BlockDeviceMappingList object
         :param image_cache: dict of image dicts keyed by id which is used as a
             cache in case there are multiple BDMs in the same request using
@@ -1824,10 +1898,10 @@ class API(base.Base):
             if disk_bus and disk_bus not in fields_obj.DiskBus.ALL:
                 raise exception.InvalidBDMDiskBus(disk_bus=disk_bus)
 
-        ephemeral_size = sum(bdm.volume_size or instance_type['ephemeral_gb']
+        ephemeral_size = sum(bdm.volume_size or flavor['ephemeral_gb']
                 for bdm in block_device_mappings
                 if block_device.new_format_is_ephemeral(bdm))
-        if ephemeral_size > instance_type['ephemeral_gb']:
+        if ephemeral_size > flavor['ephemeral_gb']:
             raise exception.InvalidBDMEphemeralSize()
 
         # There should be only one swap
@@ -1838,7 +1912,7 @@ class API(base.Base):
 
         if swap_list:
             swap_size = swap_list[0].volume_size or 0
-            if swap_size > instance_type['swap']:
+            if swap_size > flavor['swap']:
                 raise exception.InvalidBDMSwapSize()
 
         max_local = CONF.max_local_block_devices
@@ -1862,28 +1936,26 @@ class API(base.Base):
         if 'display_name' not in instance or instance.display_name is None:
             instance.display_name = 'Server %s' % instance.uuid
 
-        # if we're booting multiple instances, we need to add an indexing
-        # suffix to both instance.hostname and instance.display_name. This is
-        # not necessary for a single instance.
-        if num_instances == 1:
-            default_hostname = 'Server-%s' % instance.uuid
-            instance.hostname = utils.sanitize_hostname(
-                instance.display_name, default_hostname)
-        elif num_instances > 1:
-            old_display_name = instance.display_name
-            new_display_name = '%s-%d' % (old_display_name, index + 1)
+        # only set the hostname if the user hasn't already requested one
+        if 'hostname' not in instance or not instance.hostname:
+            # if we're booting multiple instances, we need to add an indexing
+            # suffix to both instance.hostname and instance.display_name.
+            # This is not necessary for a single instance.
+            hostname = utils.sanitize_hostname(instance.display_name)
+            if not hostname:
+                hostname = f'Server-{instance.uuid}'
+            elif num_instances > 1:
+                hostname = f'{hostname}-{index + 1}'
 
-            if utils.sanitize_hostname(old_display_name) == "":
-                instance.hostname = 'Server-%s' % instance.uuid
-            else:
-                instance.hostname = utils.sanitize_hostname(
-                    new_display_name)
+            instance.hostname = hostname
 
-            instance.display_name = new_display_name
+        if num_instances > 1:
+            instance.display_name = f'{instance.display_name}-{index + 1}'
 
-    def _populate_instance_for_create(self, context, instance, image,
-                                      index, security_groups, instance_type,
-                                      num_instances, shutdown_terminate):
+    def _populate_instance_for_create(
+        self, context, instance, image, index, security_groups, flavor,
+        num_instances, shutdown_terminate,
+    ):
         """Build the beginning of a new instance."""
 
         instance.launch_index = index
@@ -1893,7 +1965,7 @@ class API(base.Base):
         info_cache.instance_uuid = instance.uuid
         info_cache.network_info = network_model.NetworkInfo()
         instance.info_cache = info_cache
-        instance.flavor = instance_type
+        instance.flavor = flavor
         instance.old_flavor = None
         instance.new_flavor = None
         if CONF.ephemeral_storage_encryption.enabled:
@@ -1918,7 +1990,7 @@ class API(base.Base):
         instance.system_metadata = utils.instance_sys_meta(instance)
 
         system_meta = utils.get_system_metadata_from_image(
-            image, instance_type)
+            image, flavor)
 
         # In case we couldn't find any suitable base_image
         system_meta.setdefault('image_base_image_ref', instance.image_ref)
@@ -1965,34 +2037,7 @@ class API(base.Base):
             tag.resource_id = resource_id
         return instance_tags
 
-    # This method remains because cellsv1 uses it in the scheduler
-    def create_db_entry_for_new_instance(self, context, instance_type, image,
-            instance, security_group, block_device_mapping, num_instances,
-            index, shutdown_terminate=False, create_instance=True):
-        """Create an entry in the DB for this new instance,
-        including any related table updates (such as security group,
-        etc).
-
-        This is called by the scheduler after a location for the
-        instance has been determined.
-
-        :param create_instance: Determines if the instance is created here or
-            just populated for later creation. This is done so that this code
-            can be shared with cellsv1 which needs the instance creation to
-            happen here. It should be removed and this method cleaned up when
-            cellsv1 is a distant memory.
-        """
-        self._populate_instance_for_create(context, instance, image, index,
-                                           security_group, instance_type,
-                                           num_instances, shutdown_terminate)
-
-        if create_instance:
-            instance.create()
-
-        return instance
-
-    def _check_multiple_instances_with_neutron_ports(self,
-                                                     requested_networks):
+    def _check_multiple_instances_with_neutron_ports(self, requested_networks):
         """Check whether multiple instances are created from port id(s)."""
         for requested_net in requested_networks:
             if requested_net.port_id:
@@ -2010,21 +2055,23 @@ class API(base.Base):
                         "is specified.")
                 raise exception.InvalidFixedIpAndMaxCountRequest(reason=msg)
 
-    def create(self, context, instance_type,
-               image_href, kernel_id=None, ramdisk_id=None,
-               min_count=None, max_count=None,
-               display_name=None, display_description=None,
-               key_name=None, key_data=None, security_groups=None,
-               availability_zone=None, forced_host=None, forced_node=None,
-               user_data=None, metadata=None, injected_files=None,
-               admin_password=None, block_device_mapping=None,
-               access_ip_v4=None, access_ip_v6=None, requested_networks=None,
-               config_drive=None, auto_disk_config=None, scheduler_hints=None,
-               legacy_bdm=True, shutdown_terminate=False,
-               check_server_group_quota=False, tags=None,
-               supports_multiattach=False, trusted_certs=None,
-               supports_port_resource_request=False,
-               requested_host=None, requested_hypervisor_hostname=None):
+    def create(
+        self, context, flavor,
+        image_href, kernel_id=None, ramdisk_id=None,
+        min_count=None, max_count=None,
+        display_name=None, display_description=None, hostname=None,
+        key_name=None, key_data=None, security_groups=None,
+        availability_zone=None, forced_host=None, forced_node=None,
+        user_data=None, metadata=None, injected_files=None,
+        admin_password=None, block_device_mapping=None,
+        access_ip_v4=None, access_ip_v6=None, requested_networks=None,
+        config_drive=None, auto_disk_config=None, scheduler_hints=None,
+        legacy_bdm=True, shutdown_terminate=False,
+        check_server_group_quota=False, tags=None,
+        supports_multiattach=False, trusted_certs=None,
+        supports_port_resource_request=False,
+        requested_host=None, requested_hypervisor_hostname=None,
+    ):
         """Provision instances, sending instance information to the
         scheduler.  The scheduler will determine where the instance(s)
         go and will handle creating the DB entries.
@@ -2037,6 +2084,9 @@ class API(base.Base):
             self._check_multiple_instances_with_neutron_ports(
                 requested_networks)
 
+        if hostname and max_count is not None and max_count > 1:
+            raise exception.AmbiguousHostnameForMultipleInstances()
+
         if availability_zone and forced_host is None:
             azs = availability_zones.get_availability_zones(
                 context.elevated(), self.host_api, get_only_available=True)
@@ -2045,13 +2095,13 @@ class API(base.Base):
                 raise exception.InvalidRequest(msg)
 
         filter_properties = scheduler_utils.build_filter_properties(
-            scheduler_hints, forced_host, forced_node, instance_type)
+            scheduler_hints, forced_host, forced_node, flavor)
 
         return self._create_instance(
-            context, instance_type,
+            context, flavor,
             image_href, kernel_id, ramdisk_id,
             min_count, max_count,
-            display_name, display_description,
+            display_name, display_description, hostname,
             key_name, key_data, security_groups,
             availability_zone, user_data, metadata,
             injected_files, admin_password,
@@ -2188,7 +2238,7 @@ class API(base.Base):
         # mapping queued as deleted before _delete() return
         try:
             self.placementclient.delete_allocation_for_instance(
-                context, instance_uuid)
+                context, instance_uuid, force=True)
         except exception.AllocationDeleteFailed:
             LOG.info("Allocation delete failed during local delete cleanup.",
                      instance_uuid=instance_uuid)
@@ -2502,7 +2552,7 @@ class API(base.Base):
             # Cleanup allocations in Placement since we can't do it from the
             # compute service.
             self.placementclient.delete_allocation_for_instance(
-                context, instance.uuid)
+                context, instance.uuid, force=True)
             cb(context, instance, bdms, local=True)
             instance.destroy()
 
@@ -3468,6 +3518,9 @@ class API(base.Base):
             instance.trusted_certs = self._retrieve_trusted_certs_object(
                 context, trusted_certs, rebuild=True)
 
+        if 'hostname' in kwargs:
+            instance.hostname = kwargs.pop('hostname')
+
         image_id, image = self._get_image(context, image_href)
         self._check_auto_disk_config(image=image,
                                      auto_disk_config=auto_disk_config)
@@ -3773,16 +3826,18 @@ class API(base.Base):
         # during the resize.
         if instance.get_network_info().has_port_with_allocation():
             # TODO(gibi): do not directly overwrite the
-            # RequestSpec.requested_resources as others like cyborg might added
+            # RequestSpec.requested_resources and
+            # RequestSpec.request_level_paramsas others like cyborg might added
             # to things there already
             # NOTE(gibi): We need to collect the requested resource again as it
             # is intentionally not persisted in nova. Note that this needs to
             # be done here as the nova API code directly calls revert on the
             # dest compute service skipping the conductor.
-            port_res_req = (
+            port_res_req, req_lvl_params = (
                 self.network_api.get_requested_resource_for_instance(
                     context, instance.uuid))
             reqspec.requested_resources = port_res_req
+            reqspec.request_level_params = req_lvl_params
 
         instance.task_state = task_states.RESIZE_REVERTING
         instance.save(expected_task_state=[None])
@@ -3913,8 +3968,11 @@ class API(base.Base):
                           min_compute_version, MIN_COMPUTE_CROSS_CELL_RESIZE)
                 return False
 
-            if self.network_api.get_requested_resource_for_instance(
-                    context, instance.uuid):
+            res_req, req_lvl_params = (
+                self.network_api.get_requested_resource_for_instance(
+                    context, instance.uuid)
+            )
+            if res_req:
                 LOG.info(
                     'Request is allowed by policy to perform cross-cell '
                     'resize but the instance has ports with resource request '
@@ -3970,9 +4028,8 @@ class API(base.Base):
 
     # TODO(stephenfin): This logic would be so much easier to grok if we
     # finally split resize and cold migration into separate code paths
-    # FIXME(sean-k-mooney): Cold migrate and resize to different hosts
-    # probably works but they have not been tested so block them for now
-    @reject_vdpa_instances(instance_actions.RESIZE)
+    @block_extended_resource_request
+    @block_port_accelerators()
     @block_accelerators()
     @check_instance_lock
     @check_instance_state(vm_state=[vm_states.ACTIVE, vm_states.STOPPED])
@@ -3998,14 +4055,14 @@ class API(base.Base):
         self._check_auto_disk_config(
             instance, auto_disk_config=auto_disk_config)
 
-        current_instance_type = instance.get_flavor()
+        current_flavor = instance.get_flavor()
 
         # NOTE(aarents): Ensure image_base_image_ref is present as it will be
         # needed during finish_resize/cross_cell_resize. Instances upgraded
         # from an older nova release may not have this property because of
         # a rebuild bug Bug/1893618.
         instance.system_metadata.update(
-                {'image_base_image_ref': instance.image_ref}
+            {'image_base_image_ref': instance.image_ref}
         )
 
         # If flavor_id is not provided, only migrate the instance.
@@ -4013,52 +4070,51 @@ class API(base.Base):
         if not flavor_id:
             LOG.debug("flavor_id is None. Assuming migration.",
                       instance=instance)
-            new_instance_type = current_instance_type
+            new_flavor = current_flavor
         else:
-            new_instance_type = flavors.get_flavor_by_flavor_id(
-                    flavor_id, read_deleted="no")
+            new_flavor = flavors.get_flavor_by_flavor_id(
+                flavor_id, read_deleted="no")
             # NOTE(wenping): We use this instead of the 'block_accelerator'
             # decorator since the operation can differ depending on args,
             # and for resize we have two flavors to worry about, we should
             # reject resize with new flavor with accelerator.
-            if new_instance_type.extra_specs.get('accel:device_profile'):
+            if new_flavor.extra_specs.get('accel:device_profile'):
                 raise exception.ForbiddenWithAccelerators()
             # Check to see if we're resizing to a zero-disk flavor which is
             # only supported with volume-backed servers.
-            if (new_instance_type.get('root_gb') == 0 and
-                    current_instance_type.get('root_gb') != 0):
+            if (new_flavor.get('root_gb') == 0 and
+                    current_flavor.get('root_gb') != 0):
                 volume_backed = compute_utils.is_volume_backed_instance(
                         context, instance)
                 if not volume_backed:
                     reason = _('Resize to zero disk flavor is not allowed.')
                     raise exception.CannotResizeDisk(reason=reason)
 
-        current_instance_type_name = current_instance_type['name']
-        new_instance_type_name = new_instance_type['name']
-        LOG.debug("Old instance type %(current_instance_type_name)s, "
-                  "new instance type %(new_instance_type_name)s",
-                  {'current_instance_type_name': current_instance_type_name,
-                   'new_instance_type_name': new_instance_type_name},
+        current_flavor_name = current_flavor['name']
+        new_flavor_name = new_flavor['name']
+        LOG.debug("Old instance type %(current_flavor_name)s, "
+                  "new instance type %(new_flavor_name)s",
+                  {'current_flavor_name': current_flavor_name,
+                   'new_flavor_name': new_flavor_name},
                   instance=instance)
 
-        same_instance_type = (current_instance_type['id'] ==
-                              new_instance_type['id'])
+        same_flavor = current_flavor['id'] == new_flavor['id']
 
         # NOTE(sirp): We don't want to force a customer to change their flavor
         # when Ops is migrating off of a failed host.
-        if not same_instance_type and new_instance_type.get('disabled'):
+        if not same_flavor and new_flavor.get('disabled'):
             raise exception.FlavorNotFound(flavor_id=flavor_id)
 
-        if same_instance_type and flavor_id:
+        if same_flavor and flavor_id:
             raise exception.CannotResizeToSameFlavor()
 
         # ensure there is sufficient headroom for upsizes
         if flavor_id:
             self._check_quota_for_upsize(context, instance,
-                                         current_instance_type,
-                                         new_instance_type)
+                                         current_flavor,
+                                         new_flavor)
 
-        if not same_instance_type:
+        if not same_flavor:
             image = utils.get_image_from_system_metadata(
                 instance.system_metadata)
             # Figure out if the instance is volume-backed but only if we didn't
@@ -4073,14 +4129,14 @@ class API(base.Base):
             # resize case.
             if volume_backed:
                 self._validate_flavor_image_numa_pci(
-                    image, new_instance_type, validate_pci=True)
+                    image, new_flavor, validate_pci=True)
             else:
                 self._validate_flavor_image_nostatus(
-                    context, image, new_instance_type, root_bdm=None,
+                    context, image, new_flavor, root_bdm=None,
                     validate_pci=True)
 
         filter_properties = {'ignore_hosts': []}
-        if not self._allow_resize_to_same_host(same_instance_type, instance):
+        if not self._allow_resize_to_same_host(same_flavor, instance):
             filter_properties['ignore_hosts'].append(instance.host)
 
         request_spec = objects.RequestSpec.get_by_instance_uuid(
@@ -4088,9 +4144,9 @@ class API(base.Base):
         request_spec.ignore_hosts = filter_properties['ignore_hosts']
 
         # don't recalculate the NUMA topology unless the flavor has changed
-        if not same_instance_type:
+        if not same_flavor:
             request_spec.numa_topology = hardware.numa_get_constraints(
-                new_instance_type, instance.image_meta)
+                new_flavor, instance.image_meta)
             # TODO(huaqiang): Remove in Wallaby
             # check nova-compute nodes have been updated to Victoria to resize
             # instance to a new mixed instance from a dedicated or shared
@@ -4133,9 +4189,10 @@ class API(base.Base):
         # Asynchronously RPC cast to conductor so the response is not blocked
         # during scheduling. If something fails the user can find out via
         # instance actions.
-        self.compute_task_api.resize_instance(context, instance,
+        self.compute_task_api.resize_instance(
+            context, instance,
             scheduler_hint=scheduler_hint,
-            flavor=new_instance_type,
+            flavor=new_flavor,
             clean_shutdown=clean_shutdown,
             request_spec=request_spec,
             do_cast=True)
@@ -4191,9 +4248,7 @@ class API(base.Base):
             allow_same_host = CONF.allow_resize_to_same_host
         return allow_same_host
 
-    # FIXME(sean-k-mooney): Shelve works but unshelve does not due to bug
-    # #1851545, so block it for now
-    @reject_vdpa_instances(instance_actions.SHELVE)
+    @block_port_accelerators()
     @reject_vtpm_instances(instance_actions.SHELVE)
     @block_accelerators(until_service=54)
     @check_instance_lock
@@ -4235,6 +4290,7 @@ class API(base.Base):
                 context, instance=instance, clean_shutdown=clean_shutdown,
                 accel_uuids=accel_uuids)
 
+    @block_port_accelerators()
     @check_instance_lock
     @check_instance_state(vm_state=[vm_states.SHELVED])
     def shelve_offload(self, context, instance, clean_shutdown=True):
@@ -4304,6 +4360,7 @@ class API(base.Base):
                             "vol_zone": volume['availability_zone']}
                         raise exception.MismatchVolumeAZException(reason=msg)
 
+    @block_extended_resource_request
     @check_instance_lock
     @check_instance_state(vm_state=[vm_states.SHELVED,
         vm_states.SHELVED_OFFLOADED])
@@ -4383,6 +4440,7 @@ class API(base.Base):
     # FIXME(sean-k-mooney): Suspend does not work because we do not unplug
     # the vDPA devices before calling managed save as we do with SR-IOV
     # devices
+    @block_port_accelerators()
     @reject_vdpa_instances(instance_actions.SUSPEND)
     @block_accelerators()
     @reject_sev_instances(instance_actions.SUSPEND)
@@ -4739,10 +4797,24 @@ class API(base.Base):
         This method is separated to make it possible for cells version
         to override it.
         """
-        volume_bdm = self._create_volume_bdm(
-            context, instance, device, volume, disk_bus=disk_bus,
-            device_type=device_type, tag=tag,
-            delete_on_termination=delete_on_termination)
+        try:
+            volume_bdm = self._create_volume_bdm(
+                context, instance, device, volume, disk_bus=disk_bus,
+                device_type=device_type, tag=tag,
+                delete_on_termination=delete_on_termination)
+        except oslo_exceptions.MessagingTimeout:
+            # The compute node might have already created the attachment but
+            # we never received the answer. In this case it is safe to delete
+            # the attachment as nobody will ever pick it up again.
+            with excutils.save_and_reraise_exception():
+                try:
+                    objects.BlockDeviceMapping.get_by_volume_and_instance(
+                        context, volume['id'], instance.uuid).destroy()
+                    LOG.debug("Delete BDM after compute did not respond to "
+                              f"attachment request for volume {volume['id']}")
+                except exception.VolumeBDMNotFound:
+                    LOG.debug("BDM not found, ignoring removal. "
+                              f"Error attaching volume {volume['id']}")
         try:
             self._check_attach_and_reserve_volume(context, volume, instance,
                                                   volume_bdm,
@@ -5037,18 +5109,26 @@ class API(base.Base):
                     self.volume_api.attachment_delete(
                         context, new_attachment_id)
 
-    @check_instance_lock
-    @check_instance_state(vm_state=[vm_states.ACTIVE, vm_states.PAUSED,
-                                    vm_states.STOPPED],
-                          task_state=[None])
-    def attach_interface(self, context, instance, network_id, port_id,
-                         requested_ip, tag=None):
-        """Use hotplug to add an network adapter to an instance."""
-        self._record_action_start(
-            context, instance, instance_actions.ATTACH_INTERFACE)
+    def ensure_compute_version_for_resource_request(
+        self, context, instance, port
+    ):
+        """Checks that the compute service version is new enough for the
+        resource request of the port.
+       """
+        if self.network_api.has_extended_resource_request_extension(
+            context
+        ):
+            # TODO(gibi): Remove this check in Y where we can be sure that
+            # the compute is already upgraded to X.
+            res_req = port.get(constants.RESOURCE_REQUEST) or {}
+            groups = res_req.get('request_groups', [])
+            if groups:
+                svc = objects.Service.get_by_host_and_binary(
+                    context, instance.host, 'nova-compute')
+                if svc.version < MIN_COMPUTE_INT_ATTACH_WITH_EXTENDED_RES_REQ:
+                    raise exception.ExtendedResourceRequestOldCompute()
 
-        if port_id:
-            port = self.network_api.show_port(context, port_id)['port']
+        else:
             # NOTE(gibi): Checking if the requested port has resource request
             # as such ports are only supported if the compute service version
             # is >= 55.
@@ -5061,12 +5141,36 @@ class API(base.Base):
                     raise exception.AttachInterfaceWithQoSPolicyNotSupported(
                         instance_uuid=instance.uuid)
 
+    @check_instance_lock
+    @check_instance_state(vm_state=[vm_states.ACTIVE, vm_states.PAUSED,
+                                    vm_states.STOPPED],
+                          task_state=[None])
+    def attach_interface(self, context, instance, network_id, port_id,
+                         requested_ip, tag=None):
+        """Use hotplug to add an network adapter to an instance."""
+        self._record_action_start(
+            context, instance, instance_actions.ATTACH_INTERFACE)
+
+        if port_id:
+            # We need to query the port with admin context as
+            # ensure_compute_version_for_resource_request depends on the
+            # port.resource_request field which only returned for admins
+            port = self.network_api.show_port(
+                context.elevated(), port_id)['port']
             if port.get('binding:vnic_type', "normal") == "vdpa":
                 # FIXME(sean-k-mooney): Attach works but detach results in a
                 # QEMU error; blocked until this is resolved
                 raise exception.OperationNotSupportedForVDPAInterface(
                     instance_uuid=instance.uuid,
                     operation=instance_actions.ATTACH_INTERFACE)
+
+            if port.get('binding:vnic_type', 'normal') in (
+                network_model.VNIC_TYPE_ACCELERATOR_DIRECT,
+                network_model.VNIC_TYPE_ACCELERATOR_DIRECT_PHYSICAL):
+                raise exception.ForbiddenPortsWithAccelerator()
+
+            self.ensure_compute_version_for_resource_request(
+                context, instance, port)
 
         return self.compute_rpcapi.attach_interface(context,
             instance=instance, network_id=network_id, port_id=port_id,
@@ -5090,6 +5194,10 @@ class API(base.Base):
                     raise exception.OperationNotSupportedForVDPAInterface(
                         instance_uuid=instance.uuid,
                         operation=instance_actions.DETACH_INTERFACE)
+                if vif['vnic_type'] in (
+                    network_model.VNIC_TYPE_ACCELERATOR_DIRECT,
+                    network_model.VNIC_TYPE_ACCELERATOR_DIRECT_PHYSICAL):
+                    raise exception.ForbiddenPortsWithAccelerator()
                 break
         else:
             # NOTE(sean-k-mooney) This should never happen but just in case the
@@ -5108,7 +5216,7 @@ class API(base.Base):
 
     def get_instance_metadata(self, context, instance):
         """Get all metadata associated with an instance."""
-        return self.db.instance_metadata_get(context, instance.uuid)
+        return main_db_api.instance_metadata_get(context, instance.uuid)
 
     @check_instance_lock
     @check_instance_state(vm_state=[vm_states.ACTIVE, vm_states.PAUSED,
@@ -5142,6 +5250,8 @@ class API(base.Base):
 
         return _metadata
 
+    @block_extended_resource_request
+    @block_port_accelerators()
     @reject_vdpa_instances(instance_actions.LIVE_MIGRATION)
     @block_accelerators()
     @reject_vtpm_instances(instance_actions.LIVE_MIGRATION)
@@ -5274,8 +5384,8 @@ class API(base.Base):
         self.compute_rpcapi.live_migration_abort(context,
                 instance, migration.id)
 
-    # FIXME(sean-k-mooney): rebuild works but we have not tested evacuate yet
-    @reject_vdpa_instances(instance_actions.EVACUATE)
+    @block_extended_resource_request
+    @block_port_accelerators()
     @reject_vtpm_instances(instance_actions.EVACUATE)
     @block_accelerators(until_service=SUPPORT_ACCELERATOR_SERVICE_FOR_REBUILD)
     @check_instance_state(vm_state=[vm_states.ACTIVE, vm_states.STOPPED,
@@ -5739,13 +5849,12 @@ def _find_service_in_cell(context, service_id=None, service_host=None):
         raise exception.NotFound()
 
 
-class HostAPI(base.Base):
+class HostAPI:
     """Sub-set of the Compute Manager API for managing host operations."""
 
     def __init__(self, rpcapi=None, servicegroup_api=None):
         self.rpcapi = rpcapi or compute_rpcapi.ComputeAPI()
         self.servicegroup_api = servicegroup_api or servicegroup.API()
-        super(HostAPI, self).__init__()
 
     def _assert_host_exists(self, context, host_name, must_be_up=False):
         """Raise HostNotFound if compute host doesn't exist."""
@@ -5989,11 +6098,9 @@ class HostAPI(base.Base):
         """Return the task logs within a given range, optionally
         filtering by host and/or state.
         """
-        return self.db.task_log_get_all(context, task_name,
-                                        period_beginning,
-                                        period_ending,
-                                        host=host,
-                                        state=state)
+        return main_db_api.task_log_get_all(
+            context, task_name, period_beginning, period_ending, host=host,
+            state=state)
 
     def compute_node_get(self, context, compute_id):
         """Return compute node entry for particular integer ID or UUID."""
@@ -6084,7 +6191,7 @@ class HostAPI(base.Base):
             if cell.uuid == objects.CellMapping.CELL0_UUID:
                 continue
             with nova_context.target_cell(context, cell) as cctxt:
-                cell_stats.append(self.db.compute_node_statistics(cctxt))
+                cell_stats.append(main_db_api.compute_node_statistics(cctxt))
 
         if cell_stats:
             keys = cell_stats[0].keys()
@@ -6094,7 +6201,7 @@ class HostAPI(base.Base):
             return {}
 
 
-class InstanceActionAPI(base.Base):
+class InstanceActionAPI:
     """Sub-set of the Compute Manager API for managing instance actions."""
 
     def actions_get(self, context, instance, limit=None, marker=None,
@@ -6111,13 +6218,13 @@ class InstanceActionAPI(base.Base):
             context, action_id)
 
 
-class AggregateAPI(base.Base):
+class AggregateAPI:
     """Sub-set of the Compute Manager API for managing host aggregates."""
-    def __init__(self, **kwargs):
+
+    def __init__(self):
         self.compute_rpcapi = compute_rpcapi.ComputeAPI()
         self.query_client = query.SchedulerQueryClient()
         self._placement_client = None  # Lazy-load on first access.
-        super(AggregateAPI, self).__init__(**kwargs)
 
     @property
     def placement_client(self):
@@ -6401,14 +6508,13 @@ class AggregateAPI(base.Base):
         return aggregate
 
 
-class KeypairAPI(base.Base):
+class KeypairAPI:
     """Subset of the Compute Manager API for managing key pairs."""
 
     wrap_exception = functools.partial(
         exception_wrapper.wrap_exception, service='api', binary='nova-api')
 
     def __init__(self):
-        super().__init__()
         self.notifier = rpc.get_notifier('api')
 
     def _notify(self, context, event_suffix, keypair_name):
