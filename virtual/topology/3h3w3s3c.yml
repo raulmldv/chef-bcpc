@@ -1,0 +1,346 @@
+nodes:
+  - host: r1n0
+    group: bootstraps
+    hardware_profile: bootstrap
+    host_vars:
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.1
+        transit:
+          - ip: 10.121.84.2/27
+            mac: '08:00:27:00:00:10'
+            neighbor:
+              ip: 10.121.84.1
+              asn: 4200858701
+              name: management1
+          - ip: 10.121.88.2/27
+            mac: '08:00:27:00:00:11'
+            neighbor:
+              ip: 10.121.88.1
+              asn: 4200858702
+              name: management4
+      run_list:
+        - role[bootstrap]
+
+  - host: r1n1
+    group: headnodes
+    hardware_profile: headnode
+    host_vars:
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.2
+        transit:
+          - ip: 10.121.84.3/27
+            mac: '08:00:27:00:00:12'
+            neighbor:
+              ip: 10.121.84.1
+              asn: 4200858701
+              name: management1
+          - ip: 10.121.88.3/27
+            mac: '08:00:27:00:00:13'
+            neighbor:
+              ip: 10.121.88.1
+              asn: 4200858702
+              name: management4
+      run_list:
+        - role[etcdnode]
+        - role[rmqnode]
+        - role[headnode]
+
+  - host: r1n2
+    group: worknodes
+    hardware_profile: worknode
+    host_vars:
+      aggregate: dev-1
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.3
+        transit:
+          - ip: 10.121.84.4/27
+            mac: '08:00:27:00:00:14'
+            neighbor:
+              ip: 10.121.84.1
+              asn: 4200858701
+              name: management1
+          - ip: 10.121.88.4/27
+            mac: '08:00:27:00:00:15'
+            neighbor:
+              ip: 10.121.88.1
+              asn: 4200858702
+              name: management4
+      licenses:
+        - windows
+        - unlicensed
+      run_list:
+        - role[worknode]
+      zone: dev
+
+  - host: r1n3
+    group: storagenodes
+    hardware_profile: worknode
+    host_vars:
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.4
+        transit:
+          - ip: 10.121.84.5/27
+            mac: '08:00:27:00:00:16'
+            neighbor:
+              ip: 10.121.84.1
+              asn: 4200858701
+              name: management1
+          - ip: 10.121.88.5/27
+            mac: '08:00:27:00:00:17'
+            neighbor:
+              ip: 10.121.88.1
+              asn: 4200858702
+              name: management4
+      run_list:
+        - role[storagenode]
+
+  - host: r1n4
+    group: storageheadnodes
+    hardware_profile: headnode
+    host_vars:
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.5
+        transit:
+          - ip: 10.121.84.6/27
+            mac: '08:00:27:00:00:18'
+            neighbor:
+              ip: 10.121.84.1
+              asn: 4200858701
+              name: management1
+          - ip: 10.121.88.6/27
+            mac: '08:00:27:00:00:19'
+            neighbor:
+              ip: 10.121.88.1
+              asn: 4200858702
+              name: management4
+      run_list:
+        - role[storageheadnode]
+
+  - host: r2n1
+    group: headnodes
+    hardware_profile: headnode
+    host_vars:
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.16
+        transit:
+          - ip: 10.121.85.3/27
+            mac: '08:00:27:00:00:1a'
+            neighbor:
+              ip: 10.121.85.1
+              asn: 4200858703
+              name: management2
+          - ip: 10.121.89.3/27
+            mac: '08:00:27:00:00:1b'
+            neighbor:
+              ip: 10.121.89.1
+              asn: 4200858704
+              name: management5
+      run_list:
+        - role[etcdnode]
+        - role[rmqnode]
+        - role[headnode]
+
+  - host: r2n2
+    group: worknodes
+    hardware_profile: worknode
+    host_vars:
+      aggregate: dev-2
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.17
+        transit:
+          - ip: 10.121.85.4/27
+            mac: '08:00:27:00:00:1c'
+            neighbor:
+              ip: 10.121.85.1
+              asn: 4200858703
+              name: management2
+          - ip: 10.121.89.4/27
+            mac: '08:00:27:00:00:1d'
+            neighbor:
+              ip: 10.121.89.1
+              asn: 4200858704
+              name: management5
+      licenses:
+        - windows
+        - unlicensed
+      run_list:
+        - role[worknode]
+      zone: dev
+
+  - host: r2n3
+    group: storagenodes
+    hardware_profile: worknode
+    host_vars:
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.18
+        transit:
+          - ip: 10.121.85.5/27
+            mac: '08:00:27:00:00:1e'
+            neighbor:
+              ip: 10.121.85.1
+              asn: 4200858703
+              name: management2
+          - ip: 10.121.89.5/27
+            mac: '08:00:27:00:00:1f'
+            neighbor:
+              ip: 10.121.89.1
+              asn: 4200858704
+              name: management5
+      run_list:
+        - role[storagenode]
+
+  - host: r2n4
+    group: storageheadnodes
+    hardware_profile: headnode
+    host_vars:
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.19
+        transit:
+          - ip: 10.121.85.6/27
+            mac: '08:00:27:00:00:20'
+            neighbor:
+              ip: 10.121.85.1
+              asn: 4200858703
+              name: management2
+          - ip: 10.121.89.6/27
+            mac: '08:00:27:00:00:21'
+            neighbor:
+              ip: 10.121.89.1
+              asn: 4200858704
+              name: management5
+      run_list:
+        - role[storageheadnode]
+
+  - host: r3n1
+    group: headnodes
+    hardware_profile: headnode
+    host_vars:
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.32
+        transit:
+          - ip: 10.121.86.3/27
+            mac: '08:00:27:00:00:22'
+            neighbor:
+              ip: 10.121.86.1
+              asn: 4200858705
+              name: management3
+          - ip: 10.121.90.3/27
+            mac: '08:00:27:00:00:23'
+            neighbor:
+              ip: 10.121.90.1
+              asn: 4200858706
+              name: management6
+      run_list:
+        - role[etcdnode]
+        - role[rmqnode]
+        - role[headnode]
+
+  - host: r3n2
+    group: worknodes
+    hardware_profile: worknode
+    host_vars:
+      aggregate: dev-3
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.33
+        transit:
+          - ip: 10.121.86.4/27
+            mac: '08:00:27:00:00:24'
+            neighbor:
+              ip: 10.121.86.1
+              asn: 4200858705
+              name: management3
+          - ip: 10.121.90.4/27
+            mac: '08:00:27:00:00:25'
+            neighbor:
+              ip: 10.121.90.1
+              asn: 4200858706
+              name: management6
+      licenses:
+        - windows
+        - unlicensed
+      run_list:
+        - role[worknode]
+      zone: dev
+
+  - host: r3n3
+    group: storagenodes
+    hardware_profile: worknode
+    host_vars:
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.34
+        transit:
+          - ip: 10.121.86.5/27
+            mac: '08:00:27:00:00:26'
+            neighbor:
+              ip: 10.121.86.1
+              asn: 4200858705
+              name: management3
+          - ip: 10.121.90.5/27
+            mac: '08:00:27:00:00:27'
+            neighbor:
+              ip: 10.121.90.1
+              asn: 4200858706
+              name: management6
+      run_list:
+        - role[storagenode]
+
+  - host: r3n4
+    group: storageheadnodes
+    hardware_profile: headnode
+    host_vars:
+      bgp:
+        asn: 4200858801
+      interfaces:
+        service:
+          ip: 10.65.0.35
+        transit:
+          - ip: 10.121.86.6/27
+            mac: '08:00:27:00:00:28'
+            neighbor:
+              ip: 10.121.86.1
+              asn: 4200858705
+              name: management3
+          - ip: 10.121.90.6/27
+            mac: '08:00:27:00:00:29'
+            neighbor:
+              ip: 10.121.90.1
+              asn: 4200858706
+              name: management6
+      run_list:
+        - role[storageheadnode]
