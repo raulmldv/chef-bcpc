@@ -22,6 +22,8 @@ enable_v3_api = true
 <% if @scheduler_default_filters.any? %>
 scheduler_default_filters = <%= @scheduler_default_filters.join(',') %>
 <% end %>
+cinder_internal_tenant_project_id = service
+cinder_internal_tenant_user_id = <%= @config['cinder']['creds']['os']['username'] %>
 
 [backend]
 backend_name = <%= node['hostname'] %>
@@ -71,6 +73,11 @@ service_token_roles_required = True
 
 <% @backends.each do |backend| %>
 [<%= backend['name'] %>]
+<%# TODO: confirm this is the desired implementation after other backends are added %>
+<% if !backend['name'].include? "ceph" %>
+image_volume_cache_enabled = <%= node['bcpc']['cinder']['image_volume_cache_enabled'] %>
+image_volume_cache_max_count = <%= node['bcpc']['cinder']['image_volume_cache_max_count'] %>
+<% end %>
 volume_driver = cinder.volume.drivers.rbd.RBDDriver
 volume_backend_name = <%= backend['name'] %>
 rbd_user = <%= backend['client'] %>
