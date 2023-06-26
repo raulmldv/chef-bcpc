@@ -52,6 +52,13 @@ net.ipv4.tcp_retries2 = 8
 vm.swappiness = 0
 vm.min_free_kbytes = 135168
 
+# Update TCP congestion to mitigate impact of TCP retransmissions
+# Using 'fq' over 'fq_codel' here as bbr requires it for TCP pacing,
+# 'fq_codel' is generally better for forwarding/routers which aren't
+# the source originating the traffic.
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+
 # Customized parameters
 {% set sysctl_parameters = vars | dict2items | selectattr('key', 'match', '^system_parameters_') | list | items2dict -%}
 {% if sysctl_parameters | length > 0 -%}
