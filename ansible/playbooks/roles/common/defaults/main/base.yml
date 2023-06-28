@@ -220,9 +220,9 @@ assets_files:
   # ceph-deploy has been deprecated and is unavailable in Jammy
   # We are really due to move off of ceph-deploy, but for now...
   - name: ceph-deploy
-    url: http://mirrors.kernel.org/ubuntu/pool/universe/c/ceph-deploy/ceph-deploy_2.0.1-0ubuntu1_all.deb
-    checksum: sha256:6ecd4769dbe3d65ff114f458f60840b976cb73873f7e825987613f929ffed911
-    filename: ceph-deploy_2.0.1-0ubuntu1_all.deb
+    url: https://github.com/ceph/ceph-deploy/archive/refs/tags/v2.1.0.tar.gz
+    checksum: sha256:15e60e3fe7bdb7b7b67787bd523744216d8941cc1616081870e099a7010969a4
+    filename: ceph-deploy-2.1.0.tar.gz
     environment: "{{ internet_proxy | default({}) }}"
 
 # all file assets

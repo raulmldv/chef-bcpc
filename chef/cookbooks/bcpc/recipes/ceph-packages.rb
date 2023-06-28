@@ -1,7 +1,7 @@
 # Cookbook:: bcpc
 # Recipe:: ceph-packages
 #
-# Copyright:: 2022 Bloomberg Finance L.P.
+# Copyright:: 2023 Bloomberg Finance L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,38 +31,33 @@ if storagenode?
 end
 
 # ceph-deploy has been deprecated and is unavailable in Jammy
-if platform?('ubuntu') && node['platform_version'] == '22.04'
-  package = node['bcpc']['ceph']['ceph-deploy']['file']
-  save_path = "#{Chef::Config[:file_cache_path]}/#{package}"
-  file_url = node['bcpc']['ceph']['ceph-deploy']['source']
-  file_checksum = node['bcpc']['ceph']['ceph-deploy']['checksum']
-
-  remote_file save_path do
-    source file_url
-    checksum file_checksum
-    notifies :run, 'execute[install ceph-deploy]', :immediately
-  end
-
-  execute 'install ceph-deploy' do
-    action :nothing
-    command "dpkg -i #{Chef::Config[:file_cache_path]}/#{package}"
-  end
-else
-  package 'ceph-deploy'
+# We are really due to move off of ceph-deploy, but for now...
+package 'ceph-deploy' do
+  package_name 'ceph-deploy'
+  action :remove
 end
 
-# workaround python3.8 deprecation of platform.linux_distribution.
-# ceph-deploy has not been rewired to workaround this, so we do it here.
-if platform?('ubuntu') && ['20.04', '22.04'].include?(node['platform_version'])
-  package 'python3-distro'
+package 'python3-execnet'
+package 'python3-setuptools'
 
-  cookbook_file '/usr/lib/python3/dist-packages/ceph_deploy/hosts/remotes.py' do
-    source 'ceph/remotes.py'
-    notifies :run, 'execute[py3compile-ceph-deploy]', :immediately
-  end
+target = node['bcpc']['ceph']['ceph-deploy']['remote_file']['file']
+ceph_deploy = File.basename("#{target}", '.tar.gz')
+save_path = "#{Chef::Config[:file_cache_path]}/#{target}"
+web_server_url = node['bcpc']['web_server']['url']
 
-  execute 'py3compile-ceph-deploy' do
-    action :nothing
-    command 'py3compile -p ceph-deploy'
-  end
+remote_file save_path do
+  source "#{web_server_url}/#{target}"
+  checksum node['bcpc']['ceph']['ceph-deploy']['remote_file']['checksum']
+  notifies :run, 'bash[install ceph-deploy]', :immediately
+end
+
+bash 'install ceph-deploy' do
+  action :nothing
+  cwd Chef::Config[:file_cache_path]
+  code <<-EOH
+    tar -xzf #{target}
+    python3 -m pip install ./#{ceph_deploy}
+  EOH
+  retries 5
+  retry_delay 2
 end

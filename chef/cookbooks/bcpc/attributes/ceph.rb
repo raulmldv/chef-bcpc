@@ -2,10 +2,11 @@
 # ceph
 ###############################################################################
 
-ceph_deploy_package = 'ceph-deploy_2.0.1-0ubuntu1_all.deb'
-default['bcpc']['ceph']['ceph-deploy']['file'] = ceph_deploy_package
-default['bcpc']['ceph']['ceph-deploy']['source'] = "#{default['bcpc']['web_server']['url']}/#{ceph_deploy_package}"
-default['bcpc']['ceph']['ceph-deploy']['checksum'] = '6ecd4769dbe3d65ff114f458f60840b976cb73873f7e825987613f929ffed911'
+ceph_deploy_package = 'ceph-deploy-2.1.0.tar.gz'
+default['bcpc']['ceph']['ceph-deploy']['remote_file']['file'] =
+ ceph_deploy_package
+default['bcpc']['ceph']['ceph-deploy']['remote_file']['checksum'] =
+ '15e60e3fe7bdb7b7b67787bd523744216d8941cc1616081870e099a7010969a4'
 
 default['bcpc']['ceph']['repo']['enabled'] = false
 default['bcpc']['ceph']['repo']['url'] = ''
