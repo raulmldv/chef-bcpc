@@ -24,6 +24,7 @@ function main {
     find . -name "*.sh" -print0 | xargs -0 -t bashate -e E006;
     find . -name "*.py" \
         ! -path "./chef/cookbooks/bcpc/files/default/calico/mech_calico.py" \
+        ! -path "./chef/cookbooks/bcpc/files/default/cinder/rbd.py" \
         ! -path \
             "./chef/cookbooks/bcpc/files/default/neutron/external_net_db.py" \
         ! -path "./chef/cookbooks/bcpc/files/default/neutron/model_query.py" \

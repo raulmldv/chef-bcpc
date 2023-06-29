@@ -371,3 +371,19 @@ cinder_config.backends.each do |backend|
     not_if { node.run_state['os_vol_type_props'].dig(backend_name, 'volume_backend_name') == backend_name }
   end
 end
+
+# apply bug-fix for volume deferred deletion
+# Upstream bug reports:
+# https://bugs.launchpad.net/cinder/+bug/1957804
+# https://bugs.launchpad.net/cinder/+bug/1826115
+# https://bugs.launchpad.net/cinder/+bug/2012622
+cookbook_file '/usr/lib/python3/dist-packages/cinder/volume/drivers/rbd.py' do
+  source 'cinder/rbd.py'
+  notifies :restart, 'service[cinder-volume]', :delayed
+  notifies :run, 'execute[py3compile-cinder]', :delayed
+end
+
+execute 'py3compile-cinder' do
+  action :nothing
+  command 'py3compile -p python3-cinder'
+end
