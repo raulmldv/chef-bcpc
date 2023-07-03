@@ -74,22 +74,18 @@ default['bcpc']['ceph']['mon_niceness'] = -10
 # Set tcmalloc max total thread cache
 default['bcpc']['ceph']['tcmalloc_max_total_thread_cache_bytes'] = '128MB'
 
-# Set the max open fds at the OS level
-default['bcpc']['ceph']['max_open_files'] = 2048
-
 # Set tunables for Ceph OSD recovery
 default['bcpc']['ceph']['paxos_propose_interval'] = 1
 default['bcpc']['ceph']['osd_recovery_max_active'] = 1
-default['bcpc']['ceph']['osd_recovery_threads'] = 2
 default['bcpc']['ceph']['osd_recovery_op_priority'] = 1
 default['bcpc']['ceph']['osd_max_backfills'] = 1
-default['bcpc']['ceph']['osd_op_threads'] = 2
-default['bcpc']['ceph']['osd_mon_report_interval_min'] = 5
-default['bcpc']['ceph']['osd_max_scrubs'] = 5
+default['bcpc']['ceph']['osd_mon_report_interval'] = 5
+
+default['bcpc']['ceph']['osd_max_scrubs'] = 1
 default['bcpc']['ceph']['osd_deep_scrub_interval'] = 2592000
 default['bcpc']['ceph']['osd_scrub_max_interval'] = 604800
 default['bcpc']['ceph']['osd_scrub_sleep'] = 0.05
-default['bcpc']['ceph']['osd_memory_target'] = 7516192768
+default['bcpc']['ceph']['osd_memory_target'] = 6442450944
 default['bcpc']['ceph']['mon_osd_down_out_interval'] = 300
 
 # BlueStore tuning
@@ -103,13 +99,6 @@ default['bcpc']['ceph']['bluestore_rocksdb_options'] = [
   'compaction_readahead_size=2097152',
   'max_background_compactions=4',
 ]
-
-default['bcpc']['ceph']['bluestore_cache_size_ssd'] = 10737418240
-
-# https://tracker.ceph.com/issues/50017
-# Some issues noted with multiple fsck/quick fix threads; we'll wait
-# around a bit longer if it improves odds that fsck doesn't shred OSDs.
-default['bcpc']['ceph']['bluestore_fsck_quick_fix_threads'] = 1
 
 # Set RBD default feature set to only include layering and
 # deep-flatten. Other values (in particular, exclusive-lock) may prevent

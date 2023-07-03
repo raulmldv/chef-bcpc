@@ -7,7 +7,6 @@ auth client required = cephx
 mon initial members = <%= @storageheadnodes.map{ |n| n['hostname'] }.join(',') %>
 mon host = <%= @storageheadnodes.map{ |n| "[v2:#{n['service_ip']}:3300]" }.join(',') %>
 ms_bind_msgr1 = false
-max open files = <%= node['bcpc']['ceph']['max_open_files'] %>
 rbd default features = <%= node['bcpc']['ceph']['rbd_default_features'] %>
 osd crush initial weight = <%= node['bcpc']['ceph']['osd_crush_initial_weight'] %>
 admin socket mode = 0775
@@ -57,20 +56,16 @@ osd scrub end hour = <%= @node['bcpc']['ceph']['osd_scrub_end_hour'] %>
 osd scrub sleep = <%= @node['bcpc']['ceph']['osd_scrub_sleep'] %>
 osd scrub chunk min = <%= @node['bcpc']['ceph']['osd_scrub_chunk_min'] %>
 osd scrub chunk max = <%= @node['bcpc']['ceph']['osd_scrub_chunk_max'] %>
-osd scrub max scrubs = <%= @node['bcpc']['ceph']['osd_max_scrubs'] %>
+osd max scrubs = <%= @node['bcpc']['ceph']['osd_max_scrubs'] %>
 
 # settings to throttle OSD recovery parameters
-osd mon report interval min = <%= @node['bcpc']['ceph']['osd_mon_report_interval_min'] %>
+osd mon report interval = <%= @node['bcpc']['ceph']['osd_mon_report_interval'] %>
 osd recovery max active = <%= @node['bcpc']['ceph']['osd_recovery_max_active'] %>
-osd recovery threads = <%= @node['bcpc']['ceph']['osd_recovery_threads'] %>
 osd recovery op priority = <%= @node['bcpc']['ceph']['osd_recovery_op_priority'] %>
 osd max backfills  = <%= @node['bcpc']['ceph']['osd_max_backfills'] %>
-osd op threads = <%= @node['bcpc']['ceph']['osd_op_threads'] %>
 
 # bluestore tuning
 bluestore rocksdb options = <%= @node['bcpc']['ceph']['bluestore_rocksdb_options'].join(',') %>
-bluestore cache size ssd = <%= @node['bcpc']['ceph']['bluestore_cache_size_ssd'] %>
-bluestore fsck quick fix threads = <%= node['bcpc']['ceph']['bluestore_fsck_quick_fix_threads'] %>
 
 # As of Octopus 15.2.12, the AVL block allocator can degrade performance
 # when OSDs have fragmentated blocks, especially so when high IOP flash media
